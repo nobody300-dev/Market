@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - AgriMarket</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+            <div class="text-center mb-6">
+                <div class="text-5xl mb-3">🔐</div>
+                <h1 class="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+                <p class="text-gray-600 text-sm mt-2">AgriMarket Management</p>
+            </div>
+            <form onsubmit="adminLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                    <input type="email" id="adminEmail" required class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                    <input type="password" id="adminPassword" required class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                    Login to Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="hidden">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold">🌾 AgriMarket Admin</h1>
+                    <p class="text-sm text-green-100">Management Dashboard</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="font-semibold" id="adminUserName">Admin</p>
+                        <p class="text-xs text-green-100" id="adminUserEmail"></p>
+                    </div>
+                    <button onclick="adminLogout()" class="bg-white bg-opacity-20 px-4 py-2 rounded-lg hover:bg-opacity-30 transition text-sm font-semibold">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto p-6">
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-semibold">Pending Reports</p>
+                            <p class="text-3xl font-bold text-orange-600" id="statPending">0</p>
+                        </div>
+                        <div class="text-4xl">⏳</div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-semibold">Approved Today</p>
+                            <p class="text-3xl font-bold text-green-600" id="statApproved">0</p>
+                        </div>
+                        <div class="text-4xl">✅</div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-semibold">Total Markets</p>
+                            <p class="text-3xl font-bold text-blue-600" id="statMarkets">0</p>
+                        </div>
+                        <div class="text-4xl">📍</div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-semibold">Active Prices</p>
+                            <p class="text-3xl font-bold text-purple-600" id="statPrices">0</p>
+                        </div>
+                        <div class="text-4xl">💰</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6 overflow-x-auto">
+                <button id="tabBtn-pending" onclick="switchTab('pending', this)" class="admin-tab px-6 py-3 bg-green-600 text-white rounded-lg font-semibold shadow hover:shadow-lg transition whitespace-nowrap">
+                    ⏳ Pending Reports
+                </button>
+                <button id="tabBtn-manual" onclick="switchTab('manual', this)" class="admin-tab px-6 py-3 bg-white rounded-lg font-semibold shadow hover:shadow-lg transition whitespace-nowrap">
+                    ➕ Add Price Manually
+                </button>
+                <button id="tabBtn-history" onclick="switchTab('history', this)" class="admin-tab px-6 py-3 bg-white rounded-lg font-semibold shadow hover:shadow-lg transition whitespace-nowrap">
+                    📜 Recent Activity
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tabContent"></div>
+
+        </main>
+    </div>
+
+    <!-- Edit Report Modal -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center rounded-t-2xl">
+                <h2 class="text-xl font-bold text-gray-800">✏️ Edit Report Before Approving</h2>
+                <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="editReportId">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Commodity (English name to match database)
+                    </label>
+                    <select id="editCommoditySelect" onchange="editCommodityChanged(this)" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none mb-2">
+                        <option value="">Loading...</option>
+                    </select>
+                    <p class="text-xs text-gray-500">Original submission: <span id="editOriginalCommodity" class="font-semibold text-orange-600"></span></p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Region</label>
+                    <select id="editRegionSelect" onchange="editRegionChanged()" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Market</label>
+                    <select id="editMarketSelect" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none mb-2">
+                        <option value="">Select market...</option>
+                    </select>
+                    <input type="text" id="editMarketCustom" placeholder="Or type new market name..." class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Price (TZS)</label>
+                    <input type="number" id="editPrice" required min="1" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Unit</label>
+                    <select id="editUnit" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        <option value="per kg">per kg</option>
+                        <option value="per bunch">per bunch</option>
+                        <option value="per bag">per bag</option>
+                        <option value="per piece">per piece</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Quality</label>
+                    <select id="editQuality" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        <option value="">Not specified</option>
+                        <option value="Grade A">Grade A (Premium)</option>
+                        <option value="Grade B">Grade B (Standard)</option>
+                        <option value="Mixed">Mixed quality</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Market Location (Optional)
+                        <a href="#" onclick="showMapHelp(); return false;" class="text-blue-500 text-xs ml-1">How?</a>
+                    </label>
+                    <input type="url" id="editMapLink" placeholder="https://maps.app.goo.gl/..."
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                    <p class="text-xs text-gray-500 mt-1">Search the market on Google Maps, tap Share, paste the link here</p>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closeEditModal()" class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button onclick="confirmApprove()" class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">
+                        ✓ Approve & Publish
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://lzksionlxjuxcolykemf.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6a3Npb25seGp1eGNvbHlrZW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMjk0NzcsImV4cCI6MjA3OTkwNTQ3N30.qLixT17stjsAatKTxYNMEc77Ma53joEPoousokstSPI';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let currentAdmin = null;
+
+        // Cache for commodities data loaded from Supabase
+        let allCommodities = []; // full rows {name, name_en, emoji, region, market}
+
+        // ==================== LOGIN ====================
+        async function adminLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) { alert('❌ Login failed: ' + error.message); return; }
+
+                currentAdmin = data.user;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('adminDashboard').classList.remove('hidden');
+                document.getElementById('adminUserName').textContent = currentAdmin.user_metadata?.name || 'Admin';
+                document.getElementById('adminUserEmail').textContent = currentAdmin.email;
+
+                await loadAllCommoditiesCache();
+                loadDashboardStats();
+                switchTab('pending', document.getElementById('tabBtn-pending'));
+
+            } catch (error) {
+                alert('❌ Unexpected error: ' + error.message);
+            }
+        }
+
+        async function adminLogout() {
+            await supabaseClient.auth.signOut();
+            location.reload();
+        }
+
+        // ==================== CACHE ====================
+        // Load all commodities once into memory — used for dropdowns everywhere
+        async function loadAllCommoditiesCache() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('commodities')
+                    .select('name, name_en, emoji, region, market')
+                    .order('name_en', { ascending: true });
+
+                if (error) throw error;
+                allCommodities = data || [];
+                console.log('✅ Loaded', allCommodities.length, 'commodities into cache');
+            } catch (error) {
+                console.error('Cache load error:', error);
+            }
+        }
+
+        // Get unique sorted list of name_en values
+        function getUniqueCommodities() {
+            const seen = new Set();
+            return allCommodities.filter(c => {
+                if (seen.has(c.name_en)) return false;
+                seen.add(c.name_en);
+                return true;
+            });
+        }
+
+        // Get unique regions
+        function getUniqueRegions() {
+            return [...new Set(allCommodities.map(c => c.region))].sort();
+        }
+
+        // Get markets for a given region
+        function getMarketsForRegion(region) {
+            return [...new Set(
+                allCommodities
+                    .filter(c => c.region === region)
+                    .map(c => c.market)
+            )].sort();
+        }
+
+        // ==================== TAB SWITCHING ====================
+        // Fixed: takes btn as parameter instead of using event.target
+        function switchTab(tab, btn) {
+            document.querySelectorAll('.admin-tab').forEach(b => {
+                b.classList.remove('bg-green-600', 'text-white');
+                b.classList.add('bg-white');
+                b.classList.remove('text-white');
+            });
+            if (btn) {
+                btn.classList.remove('bg-white');
+                btn.classList.add('bg-green-600', 'text-white');
+            }
+            if (tab === 'pending') loadPendingReports();
+            else if (tab === 'manual') showManualEntryForm();
+            else if (tab === 'history') loadRecentActivity();
+        }
+
+        // ==================== STATS ====================
+        async function loadDashboardStats() {
+            try {
+                const { count: pending } = await supabaseClient
+                    .from('price_reports')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'pending');
+                document.getElementById('statPending').textContent = pending || 0;
+
+                const today = new Date().toISOString().split('T')[0];
+                const { count: approved } = await supabaseClient
+                    .from('price_reports')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'approved')
+                    .gte('reviewed_at', today);
+                document.getElementById('statApproved').textContent = approved || 0;
+
+                const { data: markets } = await supabaseClient
+                    .from('commodities')
+                    .select('region');
+                const uniqueMarkets = new Set(markets?.map(m => m.region));
+                document.getElementById('statMarkets').textContent = uniqueMarkets.size || 0;
+
+                const { count: prices } = await supabaseClient
+                    .from('commodities')
+                    .select('*', { count: 'exact', head: true });
+                document.getElementById('statPrices').textContent = prices || 0;
+
+            } catch (error) {
+                console.error('Stats error:', error);
+            }
+        }
+
+        // ==================== PENDING REPORTS ====================
+        async function loadPendingReports() {
+            const content = document.getElementById('tabContent');
+            content.innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent"></div></div>';
+
+            try {
+                const { data: reports, error } = await supabaseClient
+                    .from('price_reports')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!reports || reports.length === 0) {
+                    content.innerHTML = `
+                        <div class="bg-white rounded-lg shadow p-12 text-center">
+                            <div class="text-6xl mb-4">✨</div>
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">All Caught Up!</h3>
+                            <p class="text-gray-600">No pending price reports to review</p>
+                        </div>`;
+                    return;
+                }
+
+                content.innerHTML = `
+                    <div class="space-y-4">
+                        ${reports.map(report => `
+                            <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-orange-500">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="flex-1">
+                                        <h3 class="text-xl font-bold text-gray-800 mb-2">
+                                            ${getCommodityEmoji(report.commodity)} ${report.commodity} — ${report.price.toLocaleString()} TZS/${report.unit || 'kg'}
+                                        </h3>
+                                        <div class="space-y-1 text-sm text-gray-600">
+                                            <p>📍 <strong>${report.market_name}</strong>, ${report.region}</p>
+                                            <p>📏 Unit: <strong>${report.unit || 'per kg'}</strong>${report.quality ? ` • Quality: <strong>${report.quality}</strong>` : ''}</p>
+                                            <p>📅 Date observed: <strong>${report.date_observed || 'Not specified'}</strong></p>
+                                            <p>👤 Reported by: <strong>${report.reporter_name}</strong> (${report.reporter_email})
+                                                <span id="contrib-${report.user_id}" class="text-orange-600 font-semibold ml-1">• Loading...</span>
+                                            </p>
+                                            <p>🕐 ${formatTimeAgo(report.created_at)}</p>
+                                            ${report.notes ? `<p class="italic text-gray-700 mt-2 bg-gray-50 p-2 rounded">"${report.notes}"</p>` : ''}
+                                        </div>
+                                    </div>
+                                    ${report.photo_url ? `
+                                        <img src="${report.photo_url}" alt="Price photo"
+                                            class="w-32 h-32 rounded-lg object-cover cursor-pointer hover:opacity-80 transition flex-shrink-0"
+                                            onclick="window.open('${report.photo_url}', '_blank')">
+                                    ` : ''}
+                                </div>
+                                <div class="flex gap-3 mt-4">
+                                    <button onclick="openEditModal('${report.id}')"
+                                        class="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                                        ✏️ Edit & Approve
+                                    </button>
+                                    <button onclick="quickApprove('${report.id}', '${report.commodity}', ${report.price}, '${report.region}', '${report.market_name}', '${report.unit || 'per kg'}', '${report.quality || ''}')"
+                                        class="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                                        ✓ Quick Approve
+                                    </button>
+                                    <button onclick="rejectReport('${report.id}')"
+                                        class="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                                        ✗ Reject
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>`;
+
+                // Load contribution counts AFTER reports are rendered
+                loadContributionCounts(reports);
+
+            } catch (error) {
+                console.error('Load reports error:', error);
+                content.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg">Error loading reports: ${error.message}</div>`;
+            }
+        }
+
+        // ==================== EDIT MODAL ====================
+        let editReportData = null; // stores full report row
+
+        async function openEditModal(reportId) {
+            // Fetch the full report
+            const { data: report, error } = await supabaseClient
+                .from('price_reports')
+                .select('*')
+                .eq('id', reportId)
+                .single();
+
+            if (error) { alert('Error loading report: ' + error.message); return; }
+
+            editReportData = report;
+
+            // Populate edit form
+            document.getElementById('editReportId').value = report.id;
+            document.getElementById('editOriginalCommodity').textContent = report.commodity;
+            document.getElementById('editPrice').value = report.price;
+            document.getElementById('editUnit').value = report.unit || 'per kg';
+            document.getElementById('editQuality').value = report.quality || '';
+            document.getElementById('editMapLink').value = report.map_link || '';
+
+            // Populate commodity dropdown from cache
+            const uniqueCommodities = getUniqueCommodities();
+            const commoditySelect = document.getElementById('editCommoditySelect');
+            commoditySelect.innerHTML = `<option value="">-- Select commodity --</option>` +
+                uniqueCommodities.map(c =>
+                    `<option value="${c.name_en}" data-name="${c.name}" data-emoji="${c.emoji}"
+                        ${c.name_en.toLowerCase() === report.commodity.toLowerCase() ||
+                          c.name.toLowerCase() === report.commodity.toLowerCase() ? 'selected' : ''}>
+                        ${c.emoji} ${c.name} (${c.name_en})
+                    </option>`
+                ).join('');
+
+            // Populate region dropdown
+            const regions = getUniqueRegions();
+            const regionSelect = document.getElementById('editRegionSelect');
+            regionSelect.innerHTML = regions.map(r =>
+                `<option value="${r}" ${r === report.region ? 'selected' : ''}>${r}</option>`
+            ).join('');
+
+            // Populate market dropdown for selected region
+            populateEditMarkets(report.region, report.market_name);
+
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function populateEditMarkets(region, selectedMarket) {
+            const markets = getMarketsForRegion(region);
+            const marketSelect = document.getElementById('editMarketSelect');
+            marketSelect.innerHTML = `<option value="">-- Select existing market --</option>` +
+                markets.map(m =>
+                    `<option value="${m}" ${m === selectedMarket ? 'selected' : ''}>${m}</option>`
+                ).join('');
+
+            // If market not in list, put it in custom input
+            if (selectedMarket && !markets.includes(selectedMarket)) {
+                document.getElementById('editMarketCustom').value = selectedMarket;
+            } else {
+                document.getElementById('editMarketCustom').value = '';
+            }
+        }
+
+        function editRegionChanged() {
+            const region = document.getElementById('editRegionSelect').value;
+            populateEditMarkets(region, '');
+        }
+
+        function editCommodityChanged(select) {
+            // Nothing extra needed — value is already name_en
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            editReportData = null;
+        }
+
+        async function confirmApprove() {
+    const reportId = document.getElementById('editReportId').value;
+    const commodityNameEn = document.getElementById('editCommoditySelect').value;
+    const price = parseFloat(document.getElementById('editPrice').value);
+    const region = document.getElementById('editRegionSelect').value;
+    const unit = document.getElementById('editUnit').value;
+    const quality = document.getElementById('editQuality').value;
+
+    const marketDropdown = document.getElementById('editMarketSelect').value;
+    const marketCustom = document.getElementById('editMarketCustom').value.trim();
+    const market = marketCustom || marketDropdown;
+
+    if (!commodityNameEn) { alert('Please select a commodity'); return; }
+    if (!region) { alert('Please select a region'); return; }
+    if (!market) { alert('Please enter or select a market'); return; }
+    if (!price || price <= 0) { alert('Please enter a valid price'); return; }
+
+    const selectedOption = document.getElementById('editCommoditySelect').selectedOptions[0];
+    const commodityNameSw = selectedOption?.dataset.name || commodityNameEn;
+    const emoji = selectedOption?.dataset.emoji || '🌱';
+
+    const mapLink = document.getElementById('editMapLink').value.trim();
+    const coords = extractCoordinates(mapLink);
+    closeEditModal();
+    await publishPrice(reportId, commodityNameEn, commodityNameSw, emoji, price, region, market, unit, quality,
+        mapLink || null, coords.lat, coords.lng);
+}
+
+        // Quick approve without editing — uses submitted values as-is
+        async function quickApprove(reportId, commodity, price, region, market, unit, quality) {
+            if (!confirm('Approve this report as submitted?\n\nNote: If the commodity name is in Swahili, use "Edit & Approve" to match it to the database.')) return;
+
+            // Try to find matching name_en from cache
+            const match = allCommodities.find(c =>
+                c.name.toLowerCase() === commodity.toLowerCase() ||
+                c.name_en.toLowerCase() === commodity.toLowerCase()
+            );
+
+            const nameEn = match?.name_en || commodity;
+            const nameSw = match?.name || commodity;
+            const emoji = match?.emoji || getCommodityEmoji(commodity);
+
+            await publishPrice(reportId, nameEn, nameSw, emoji, price, region, market, unit, quality, null, null, null);
+        }
+
+        // ==================== CORE PUBLISH FUNCTION ====================
+        // Used by both approve flows and manual entry
+        async function publishPrice(reportId, nameEn, nameSw, emoji, price, region, market, unit, quality, mapLink, lat, lng) {
+    try {
+        // Find existing row matching name_en + region + market
+        const { data: existing, error: checkError } = await supabaseClient
+            .from('commodities')
+            .select('*')
+            .eq('name_en', nameEn)
+            .eq('region', region)
+            .eq('market', market)
+            .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        if (existing) {
+            // Archive old price to history
+            
+
+            // Update existing row with new price
+            const { error: updateError } = await supabaseClient
+                .from('commodities')
+                .update({
+                    price: price,
+                    unit: unit || 'per kg',
+                    quality: quality || null,
+                    map_link: mapLink || existing.map_link,
+                    latitude: lat || existing.latitude,
+                    longitude: lng || existing.longitude,
+                    data_source: reportId ? 'Community' : 'Manual',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id);
+
+            if (updateError) throw updateError;
+
+        } else {
+            // Insert new row
+            const { error: insertError } = await supabaseClient
+                .from('commodities')
+                .insert({
+                    name: nameSw,
+                    name_en: nameEn,
+                    emoji: emoji,
+                    region: region,
+                    market: market,
+                    price: price,
+                    unit: unit || 'per kg',
+                    quality: quality || null,
+                    map_link: mapLink || null,
+                    latitude: lat || null,
+                    longitude: lng || null,
+                    data_source: reportId ? 'Community' : 'Manual',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+
+            if (insertError) throw insertError;
+        }
+
+        // If from a report, mark as approved
+        if (reportId) {
+            const { error: updateReportError } = await supabaseClient
+                .from('price_reports')
+                .update({
+                    status: 'approved',
+                    reviewed_by: currentAdmin.id,
+                    reviewed_at: new Date().toISOString()
+                })
+                .eq('id', reportId);
+
+            if (updateReportError) throw updateReportError;
+
+            // Badge check
+            const { data: reportRow } = await supabaseClient
+                .from('price_reports')
+                .select('user_id')
+                .eq('id', reportId)
+                .single();
+
+            if (reportRow) {
+                const { count } = await supabaseClient
+                    .from('price_reports')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', reportRow.user_id)
+                    .eq('status', 'approved');
+
+                if (count >= 7) {
+                    await supabaseClient
+                        .from('user_badges')
+                        .upsert({
+                            user_id: reportRow.user_id,
+                            badge_type: 'contributor',
+                            awarded_at: new Date().toISOString()
+                        }, { onConflict: 'user_id,badge_type' });
+
+                    alert('✅ Price published!\n🎗️ This user just earned their contributor badge!');
+                } else {
+                    alert('✅ Price published successfully!');
+                }
+            }
+        } else {
+            alert('✅ Price added successfully!');
+        }
+
+        await loadAllCommoditiesCache();
+        loadDashboardStats();
+        if (reportId) loadPendingReports();
+
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+        console.error('Publish error:', error);
+    }
+}
+
+        // ==================== REJECT ====================
+        async function rejectReport(reportId) {
+            if (!confirm('Reject this price report?')) return;
+            try {
+                const { error } = await supabaseClient
+                    .from('price_reports')
+                    .update({
+                        status: 'rejected',
+                        reviewed_by: currentAdmin.id,
+                        reviewed_at: new Date().toISOString()
+                    })
+                    .eq('id', reportId);
+
+                if (error) throw error;
+                alert('Report rejected');
+                loadDashboardStats();
+                loadPendingReports();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ==================== MANUAL ENTRY ====================
+        function showManualEntryForm() {
+            const uniqueCommodities = getUniqueCommodities();
+            const regions = getUniqueRegions();
+
+            document.getElementById('tabContent').innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-8 max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">➕ Add Price Manually</h2>
+                    <p class="text-gray-600 mb-6">For your personal market research or verified sources</p>
+
+                    <form onsubmit="submitManualPrice(event)" class="space-y-4">
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Region</label>
+                                <select id="manualRegion" required onchange="manualRegionChanged()"
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                    <option value="">Select region...</option>
+                                    ${regions.map(r => `<option value="${r}">${r}</option>`).join('')}
+                                    <option value="__new__">+ Other region...</option>
+                                </select>
+                                <input type="text" id="manualRegionCustom" placeholder="Type region name..."
+                                    class="hidden w-full mt-2 px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Market Name</label>
+                                <select id="manualMarket" onchange="manualMarketChanged()"
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                    <option value="">Select region first...</option>
+                                </select>
+                                <input type="text" id="manualMarketCustom" placeholder="Or type new market name..."
+                                    class="w-full mt-2 px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none text-sm">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Google Maps Link (Optional)</label>
+                            <input type="url" id="manualMapLink" placeholder="https://maps.app.goo.gl/..."
+                                class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Commodity</label>
+                                <select id="manualCommodity" required
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                    <option value="">Select commodity...</option>
+                                    ${uniqueCommodities.map(c =>
+                                        `<option value="${c.name_en}"
+                                            data-name="${c.name}"
+                                            data-emoji="${c.emoji}">
+                                            ${c.emoji} ${c.name} (${c.name_en})
+                                        </option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Price (TZS)</label>
+                                <input type="number" id="manualPrice" required min="1" placeholder="e.g., 1200"
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Unit</label>
+                                <select id="manualUnit" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                    <option value="per kg">per kg</option>
+                                    <option value="per bunch">per bunch</option>
+                                    <option value="per bag">per bag</option>
+                                    <option value="per piece">per piece</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Quality (Optional)</label>
+                                <select id="manualQuality" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                    <option value="">Not specified</option>
+                                    <option value="Grade A">Grade A (Premium)</option>
+                                    <option value="Grade B">Grade B (Standard)</option>
+                                    <option value="Mixed">Mixed quality</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-green-600 text-white py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transition">
+                            ✓ Add Price to Database
+                        </button>
+                    </form>
+                </div>`;
+        }
+
+        function manualRegionChanged() {
+            const regionSelect = document.getElementById('manualRegion');
+            const customInput = document.getElementById('manualRegionCustom');
+            const marketSelect = document.getElementById('manualMarket');
+
+            if (regionSelect.value === '__new__') {
+                customInput.classList.remove('hidden');
+                customInput.required = true;
+                marketSelect.innerHTML = '<option value="">Select region first...</option>';
+            } else {
+                customInput.classList.add('hidden');
+                customInput.required = false;
+                customInput.value = '';
+                const markets = getMarketsForRegion(regionSelect.value);
+                marketSelect.innerHTML = `<option value="">-- Select existing market --</option>` +
+                    markets.map(m => `<option value="${m}">${m}</option>`).join('');
+            }
+        }
+
+        function manualMarketChanged() {
+            // If dropdown selection is made, clear custom input
+            const marketSelect = document.getElementById('manualMarket');
+            if (marketSelect.value) {
+                document.getElementById('manualMarketCustom').value = '';
+            }
+        }
+
+        async function submitManualPrice(e) {
+            e.preventDefault();
+
+            const commoditySelect = document.getElementById('manualCommodity');
+            const nameEn = commoditySelect.value;
+            const selectedOption = commoditySelect.selectedOptions[0];
+            const nameSw = selectedOption?.dataset.name || nameEn;
+            const emoji = selectedOption?.dataset.emoji || '🌱';
+
+            const price = parseFloat(document.getElementById('manualPrice').value);
+            const unit = document.getElementById('manualUnit').value;
+            const quality = document.getElementById('manualQuality').value;
+            const mapLink = document.getElementById('manualMapLink').value.trim();
+
+            // Region: custom or dropdown
+            const regionSelect = document.getElementById('manualRegion');
+            const region = regionSelect.value === '__new__'
+                ? document.getElementById('manualRegionCustom').value.trim()
+                : regionSelect.value;
+
+            // Market: custom input overrides dropdown
+            const marketCustom = document.getElementById('manualMarketCustom').value.trim();
+            const marketDropdown = document.getElementById('manualMarket').value;
+            const market = marketCustom || marketDropdown;
+
+            if (!nameEn) { alert('Please select a commodity'); return; }
+            if (!region) { alert('Please enter or select a region'); return; }
+            if (!market) { alert('Please enter or select a market'); return; }
+            if (!price || price <= 0) { alert('Please enter a valid price'); return; }
+
+            const coords = extractCoordinates(mapLink);
+
+            await publishPrice(null, nameEn, nameSw, emoji, price, region, market, unit, quality,
+                mapLink || null, coords.lat, coords.lng);
+
+            // Reset form
+            document.getElementById('manualPrice').value = '';
+            document.getElementById('manualMapLink').value = '';
+            document.getElementById('manualMarketCustom').value = '';
+        }
+
+        // ==================== RECENT ACTIVITY ====================
+        async function loadRecentActivity() {
+            document.getElementById('tabContent').innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent"></div></div>';
+
+            try {
+                const { data: activity, error } = await supabaseClient
+                    .from('price_reports')
+                    .select('*')
+                    .in('status', ['approved', 'rejected'])
+                    .order('reviewed_at', { ascending: false })
+                    .limit(50);
+
+                if (error) throw error;
+
+                if (!activity || activity.length === 0) {
+                    document.getElementById('tabContent').innerHTML = `
+                        <div class="bg-white rounded-lg shadow p-12 text-center">
+                            <div class="text-5xl mb-3">📭</div>
+                            <p class="text-gray-500">No activity yet</p>
+                        </div>`;
+                    return;
+                }
+
+                document.getElementById('tabContent').innerHTML = `
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Commodity</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Price</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Location</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Reporter</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Reviewed</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${activity.map(item => `
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 text-sm">${getCommodityEmoji(item.commodity)} ${item.commodity}</td>
+                                            <td class="px-6 py-4 text-sm font-semibold">${item.price.toLocaleString()} TZS</td>
+                                            <td class="px-6 py-4 text-sm">${item.market_name}, ${item.region}</td>
+                                            <td class="px-6 py-4 text-sm">${item.reporter_name}</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-3 py-1 text-xs font-semibold rounded-full ${item.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                                    ${item.status === 'approved' ? '✓ Approved' : '✗ Rejected'}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${formatTimeAgo(item.reviewed_at)}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
+
+            } catch (error) {
+                console.error('Activity error:', error);
+                document.getElementById('tabContent').innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg">Error: ${error.message}</div>`;
+            }
+        }
+
+        // ==================== CONTRIBUTION COUNTS ====================
+        async function loadContributionCounts(reports) {
+            const userIds = [...new Set(reports.map(r => r.user_id))];
+            for (const userId of userIds) {
+                try {
+                    const { count } = await supabaseClient
+                        .from('price_reports')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', userId)
+                        .eq('status', 'approved');
+
+                    const element = document.getElementById(`contrib-${userId}`);
+                    if (element) {
+                        const badgeStatus = count >= 7 ? '🎗️ Has badge' : `${count}/7 approved`;
+                        element.textContent = `• ${badgeStatus}`;
+                        element.className = count >= 7
+                            ? 'text-green-600 font-semibold ml-1'
+                            : 'text-orange-600 font-semibold ml-1';
+                    }
+                } catch (error) {
+                    console.error('Contrib count error:', error);
+                }
+            }
+        }
+
+        // ==================== HELPERS ====================
+        function getCommodityEmoji(name) {
+            // Check cache first
+            const match = allCommodities.find(c =>
+                c.name_en?.toLowerCase() === name?.toLowerCase() ||
+                c.name?.toLowerCase() === name?.toLowerCase()
+            );
+            if (match) return match.emoji;
+
+            // Fallback map
+            const emojis = {
+                'Maize': '🌽', 'Rice': '🍚', 'Beans': '🫘', 'Wheat': '🌾',
+                'Cassava': '🥔', 'Sweet Potato': '🍠', 'Tomatoes': '🍅',
+                'Onions': '🧅', 'Cabbage': '🥬', 'Bananas': '🍌',
+                'Groundnuts': '🥜', 'Sunflower': '🌻', 'Coffee': '☕',
+                'Tea': '🍵', 'Cashew': '🥜', 'Cotton': '☁️'
+            };
+            return emojis[name] || '🌱';
+        }
+
+        function formatTimeAgo(date) {
+            if (!date) return '—';
+            const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+            if (seconds < 60) return 'just now';
+            if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+            return Math.floor(seconds / 86400) + 'd ago';
+        }
+
+        function extractCoordinates(mapLink) {
+            if (!mapLink) return { lat: null, lng: null };
+            try {
+                let match = mapLink.match(/q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+                if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+                match = mapLink.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+                if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+                return { lat: null, lng: null };
+            } catch (e) {
+                return { lat: null, lng: null };
+            }
+        }
+
+        // ==================== AUTO LOGIN CHECK ====================
+        (async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                currentAdmin = session.user;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('adminDashboard').classList.remove('hidden');
+                document.getElementById('adminUserName').textContent = currentAdmin.user_metadata?.name || 'Admin';
+                document.getElementById('adminUserEmail').textContent = currentAdmin.email;
+                await loadAllCommoditiesCache();
+                loadDashboardStats();
+                switchTab('pending', document.getElementById('tabBtn-pending'));
+            }
+        })();
+
+    </script>
+</body>
+</html>
