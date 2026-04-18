@@ -8458,11 +8458,11 @@ Question: ${question}
 
 Give a COMPLETE, practical answer:`;
 
-         const response = await fetch('/ai', {  
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: systemPrompt })
-        });
+         const response = await fetch('https://lzksionlxjuxcolykemf.supabase.co/functions/v1/gemini-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: systemPrompt })
+});
         
         if (!response.ok) {
             const errorData = await response.json();
