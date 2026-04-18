@@ -209,8 +209,17 @@
             try {
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) { alert('❌ Login failed: ' + error.message); return; }
+currentAdmin = data.user;
 
-                currentAdmin = data.user;
+                const ADMIN_UID = '9aecb1c5-6bb9-4f4b-9fb0-69090f55b21b';
+                if (currentAdmin.id !== ADMIN_UID) {
+                    await supabaseClient.auth.signOut();
+                    alert('❌ Access denied. This area is restricted.');
+                    document.getElementById('adminEmail').value = '';
+                    document.getElementById('adminPassword').value = '';
+                    return;
+                }
+
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('adminDashboard').classList.remove('hidden');
                 document.getElementById('adminUserName').textContent = currentAdmin.user_metadata?.name || 'Admin';
@@ -954,6 +963,13 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentAdmin = session.user;
+
+                const ADMIN_UID = '9aecb1c5-6bb9-4f4b-9fb0-69090f55b21b';
+                if (currentAdmin.id !== ADMIN_UID) {
+                    await supabaseClient.auth.signOut();
+                    return;
+                }
+
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('adminDashboard').classList.remove('hidden');
                 document.getElementById('adminUserName').textContent = currentAdmin.user_metadata?.name || 'Admin';
