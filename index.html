@@ -8458,8 +8458,7 @@ Question: ${question}
 
 Give a COMPLETE, practical answer:`;
 
-  
-        const response = await fetch('/.netlify/functions/ai', {
+         const response = await fetch('/functions/ai', {  
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: systemPrompt })
