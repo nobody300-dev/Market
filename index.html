@@ -8450,13 +8450,14 @@ MARKET TIMING FOR BEST PRICES:
 RULES:
 1. If asked WHEN to plant for BEST PRICES, recommend planting EARLY to harvest BEFORE peak season
 2. Answer in SAME language as question (Swahili → Swahili, English → English)
-3. Keep under 200 words
+3. Maximum 150 words - be concise
 4. Be practical and specific to Tanzania
-5. ALWAYS complete your answer - don't cut off mid-sentence
+5. ALWAYS end with a complete sentence - never cut off mid-sentence
+6. Use short paragraphs, no bullet points
 
 Question: ${question}
 
-Give a COMPLETE, practical answer:`;
+Give a SHORT, COMPLETE answer in under 150 words:`;
 
          const response = await fetch('https://lzksionlxjuxcolykemf.supabase.co/functions/v1/gemini-proxy', {
     method: 'POST',
