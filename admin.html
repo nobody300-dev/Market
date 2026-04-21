@@ -209,17 +209,8 @@
             try {
                 const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) { alert('❌ Login failed: ' + error.message); return; }
-currentAdmin = data.user;
 
-                const ADMIN_UID = '9aecb1c5-6bb9-4f4b-9fb0-69090f55b21b';
-                if (currentAdmin.id !== ADMIN_UID) {
-                    await supabaseClient.auth.signOut();
-                    alert('❌ Access denied. This area is restricted.');
-                    document.getElementById('adminEmail').value = '';
-                    document.getElementById('adminPassword').value = '';
-                    return;
-                }
-
+                currentAdmin = data.user;
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('adminDashboard').classList.remove('hidden');
                 document.getElementById('adminUserName').textContent = currentAdmin.user_metadata?.name || 'Admin';
@@ -532,7 +523,7 @@ currentAdmin = data.user;
 
         // ==================== CORE PUBLISH FUNCTION ====================
         // Used by both approve flows and manual entry
-        async function publishPrice(reportId, nameEn, nameSw, emoji, price, region, market, unit, quality, mapLink, lat, lng) {
+        async function publishPrice(reportId, nameEn, nameSw, emoji, price, priceMin, region, market, unit, unitKgEquivalent, quality, priceWholesale, wholesaleUnit, mapLink, lat, lng) {
     try {
         // Find existing row matching name_en + region + market
         const { data: existing, error: checkError } = await supabaseClient
@@ -551,41 +542,49 @@ currentAdmin = data.user;
 
             // Update existing row with new price
             const { error: updateError } = await supabaseClient
-                .from('commodities')
-                .update({
-                    price: price,
-                    unit: unit || 'per kg',
-                    quality: quality || null,
-                    map_link: mapLink || existing.map_link,
-                    latitude: lat || existing.latitude,
-                    longitude: lng || existing.longitude,
-                    data_source: reportId ? 'Community' : 'Manual',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', existing.id);
+                        .from('commodities')
+                        .update({
+                            price: price,
+                            price_min: priceMin || null,
+                            unit: unit || 'per kg',
+                            unit_kg_equivalent: unitKgEquivalent || null,
+                            quality: quality || null,
+                            price_wholesale: priceWholesale || null,
+                            wholesale_unit: wholesaleUnit || null,
+                            map_link: mapLink || existing.map_link,
+                            latitude: lat || existing.latitude,
+                            longitude: lng || existing.longitude,
+                            data_source: reportId ? 'Community' : 'Manual',
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', existing.id);
 
             if (updateError) throw updateError;
 
         } else {
             // Insert new row
             const { error: insertError } = await supabaseClient
-                .from('commodities')
-                .insert({
-                    name: nameSw,
-                    name_en: nameEn,
-                    emoji: emoji,
-                    region: region,
-                    market: market,
-                    price: price,
-                    unit: unit || 'per kg',
-                    quality: quality || null,
-                    map_link: mapLink || null,
-                    latitude: lat || null,
-                    longitude: lng || null,
-                    data_source: reportId ? 'Community' : 'Manual',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                });
+                        .from('commodities')
+                        .insert({
+                            name: nameSw,
+                            name_en: nameEn,
+                            emoji: emoji,
+                            region: region,
+                            market: market,
+                            price: price,
+                            price_min: priceMin || null,
+                            unit: unit || 'per kg',
+                            unit_kg_equivalent: unitKgEquivalent || null,
+                            quality: quality || null,
+                            price_wholesale: priceWholesale || null,
+                            wholesale_unit: wholesaleUnit || null,
+                            map_link: mapLink || null,
+                            latitude: lat || null,
+                            longitude: lng || null,
+                            data_source: reportId ? 'Community' : 'Manual',
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        });
 
             if (insertError) throw insertError;
         }
@@ -732,25 +731,84 @@ currentAdmin = data.user;
                             </div>
                         </div>
 
+                        <!-- Retail Price Range -->
                         <div class="grid md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Unit</label>
-                                <select id="manualUnit" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Min Price (TZS) 
+                                    <span class="text-gray-400 font-normal">— lowest seen</span>
+                                </label>
+                                <input type="number" id="manualPriceMin" min="1" placeholder="e.g., 900"
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Max Price (TZS) <span class="text-red-500">*</span>
+                                    <span class="text-gray-400 font-normal">— highest seen</span>
+                                </label>
+                                <input type="number" id="manualPrice" required min="1" placeholder="e.g., 1,200"
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Unit -->
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Retail Unit</label>
+                                <select id="manualUnit" onchange="toggleKgEquivalent()"
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
                                     <option value="per kg">per kg</option>
+                                    <option value="per debe (20L)">per debe (20L)</option>
                                     <option value="per bunch">per bunch</option>
-                                    <option value="per bag">per bag</option>
+                                    <option value="per crate">per crate</option>
+                                    <option value="per sack">per sack</option>
                                     <option value="per piece">per piece</option>
                                 </select>
                             </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Quality (Optional)</label>
-                                <select id="manualQuality" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
-                                    <option value="">Not specified</option>
-                                    <option value="Grade A">Grade A (Premium)</option>
-                                    <option value="Grade B">Grade B (Standard)</option>
-                                    <option value="Mixed">Mixed quality</option>
-                                </select>
+                            <div id="kgEquivalentField" class="hidden">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    ≈ TZS per kg equivalent
+                                    <span class="text-gray-400 font-normal">— auto or manual</span>
+                                </label>
+                                <input type="number" id="manualKgEquivalent" min="1" placeholder="Auto-calculated"
+                                    class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
                             </div>
+                        </div>
+
+                        <!-- Wholesale (Optional) -->
+                        <div class="border-2 border-dashed border-gray-200 rounded-lg p-4">
+                            <p class="text-sm font-bold text-gray-700 mb-3">📦 Wholesale Price (Optional)</p>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Wholesale Price (TZS)</label>
+                                    <input type="number" id="manualWholesalePrice" min="1" placeholder="e.g., 85,000"
+                                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Wholesale Unit</label>
+                                    <select id="manualWholesaleUnit"
+                                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                        <option value="">Select unit...</option>
+                                        <option value="per sack (90kg)">per sack (90kg)</option>
+                                        <option value="per sack (50kg)">per sack (50kg)</option>
+                                        <option value="per crate">per crate</option>
+                                        <option value="per ton">per ton</option>
+                                        <option value="per lorry">per lorry</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quality -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Quality (Optional)</label>
+                            <select id="manualQuality"
+                                class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                                <option value="">Not specified</option>
+                                <option value="Grade A">Grade A (Premium)</option>
+                                <option value="Grade B">Grade B (Standard)</option>
+                                <option value="Mixed">Mixed quality</option>
+                            </select>
                         </div>
 
                         <button type="submit" class="w-full bg-green-600 text-white py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transition">
@@ -759,6 +817,34 @@ currentAdmin = data.user;
                     </form>
                 </div>`;
         }
+
+        function toggleKgEquivalent() {
+    const unit = document.getElementById('manualUnit').value;
+    const field = document.getElementById('kgEquivalentField');
+    const input = document.getElementById('manualKgEquivalent');
+    const priceMax = parseFloat(document.getElementById('manualPrice').value) || 0;
+    const priceMin = parseFloat(document.getElementById('manualPriceMin').value) || priceMax;
+    const avgPrice = (priceMax + priceMin) / 2;
+
+    if (unit !== 'per kg') {
+        field.classList.remove('hidden');
+        // Auto calculate kg equivalent based on unit
+        if (avgPrice > 0) {
+            const conversions = {
+                'per debe (20L)': 15,
+                'per bunch': 12,
+                'per crate': 20,
+                'per sack': 90,
+                'per piece': 0.5
+            };
+            const kgWeight = conversions[unit] || 1;
+            input.placeholder = Math.round(avgPrice / kgWeight) + ' (auto)';
+        }
+    } else {
+        field.classList.add('hidden');
+        input.value = '';
+    }
+}
 
         function manualRegionChanged() {
             const regionSelect = document.getElementById('manualRegion');
@@ -796,9 +882,26 @@ currentAdmin = data.user;
             const nameSw = selectedOption?.dataset.name || nameEn;
             const emoji = selectedOption?.dataset.emoji || '🌱';
 
-            const price = parseFloat(document.getElementById('manualPrice').value);
-            const unit = document.getElementById('manualUnit').value;
-            const quality = document.getElementById('manualQuality').value;
+           const price = parseFloat(document.getElementById('manualPrice').value);
+        const priceMin = parseFloat(document.getElementById('manualPriceMin').value) || null;
+        const unit = document.getElementById('manualUnit').value;
+        const quality = document.getElementById('manualQuality').value;
+        const priceWholesale = parseFloat(document.getElementById('manualWholesalePrice').value) || null;
+        const wholesaleUnit = document.getElementById('manualWholesaleUnit').value || null;
+        const kgEquivalentInput = parseFloat(document.getElementById('manualKgEquivalent').value);
+        
+        // Auto calculate kg equivalent if not manually entered
+        const conversions = {
+            'per debe (20L)': 15,
+            'per bunch': 12,
+            'per crate': 20,
+            'per sack': 90,
+            'per piece': 0.5
+        };
+        const avgPrice = priceMin ? (price + priceMin) / 2 : price;
+        const kgWeight = conversions[unit] || 1;
+        const unitKgEquivalent = unit === 'per kg' ? null 
+            : (kgEquivalentInput || Math.round(avgPrice / kgWeight));
             const mapLink = document.getElementById('manualMapLink').value.trim();
 
             // Region: custom or dropdown
@@ -819,8 +922,9 @@ currentAdmin = data.user;
 
             const coords = extractCoordinates(mapLink);
 
-            await publishPrice(null, nameEn, nameSw, emoji, price, region, market, unit, quality,
-                mapLink || null, coords.lat, coords.lng);
+            await publishPrice(null, nameEn, nameSw, emoji, price, priceMin, region, market, unit, 
+            unitKgEquivalent, quality, priceWholesale, wholesaleUnit, mapLink || null, 
+            coords.lat, coords.lng);
 
             // Reset form
             document.getElementById('manualPrice').value = '';
@@ -963,13 +1067,6 @@ currentAdmin = data.user;
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 currentAdmin = session.user;
-
-                const ADMIN_UID = '9aecb1c5-6bb9-4f4b-9fb0-69090f55b21b';
-                if (currentAdmin.id !== ADMIN_UID) {
-                    await supabaseClient.auth.signOut();
-                    return;
-                }
-
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('adminDashboard').classList.remove('hidden');
                 document.getElementById('adminUserName').textContent = currentAdmin.user_metadata?.name || 'Admin';
