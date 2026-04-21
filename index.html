@@ -360,6 +360,10 @@
                     <option value="Dar es Salaam">Dar es Salaam</option>
                     <option value="Arusha">Arusha</option>
                     <option value="Mwanza">Mwanza</option>
+                    <option value="Dodoma">Dodoma</option>
+                    <option value="Mbeya">Mbeya</option>
+                    <option value="Iringa">Iringa</option>
+                    <option value="Morogoro">Morogoro</option>
                 </select>
                 <button onclick="refreshPrices()" class="px-4 py-2 text-sm bg-green-600 text-white rounded-lg font-semibold">
                     <span data-i18n="refresh">🔄 Refresh</span>
@@ -2044,17 +2048,22 @@ async function loadCommodities() {
         
         if (data && data.length > 0) {
             // Map commodities
-            commodities = data.map(item => ({
-                id: item.id,
-                name: item.name,
-                nameEn: item.name_en,
-                emoji: item.emoji,
-                region: item.region,
-                market: item.market,
-                mapLink: item.map_link,
-                price: item.price,
-                change: null  // Will be calculated below
-            }));
+           commodities = data.map(item => ({
+    id: item.id,
+    name: item.name,
+    nameEn: item.name_en,
+    emoji: item.emoji,
+    region: item.region,
+    market: item.market,
+    mapLink: item.map_link,
+    price: item.price,
+    price_min: item.price_min,
+    price_wholesale: item.price_wholesale,
+    wholesale_unit: item.wholesale_unit,
+    unit: item.unit,
+    unit_kg_equivalent: item.unit_kg_equivalent,
+    change: null
+}));
             
             console.log('✅ Loaded', commodities.length, 'commodities from Supabase');
             
@@ -2104,14 +2113,19 @@ async function loadCommodities() {
                 }
 
                 const currentPricePoint = chartData[chartData.length - 1];
-                const currentPriceValue = currentPricePoint.price;
+                // Use average of min/max if available, otherwise use price
+                const currentPriceValue = currentPricePoint.price_min
+                    ? (currentPricePoint.price + currentPricePoint.price_min) / 2
+                    : currentPricePoint.price;
 
                 const oldPricePoint = chartData
                     .filter(d => new Date(d.recorded_at) <= sevenDaysAgo)
                     .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0]
                     || chartData[0];
 
-                const oldPriceValue = oldPricePoint.price;
+                const oldPriceValue = oldPricePoint.price_min
+                    ? (oldPricePoint.price + oldPricePoint.price_min) / 2
+                    : oldPricePoint.price;
 
                 if (!oldPriceValue || oldPriceValue === 0) {
                     commodities[i].change = null;
@@ -4594,7 +4608,7 @@ function enterSales(cropId) {
    function renderCommodities(data = commodities) {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = data.map((item, index) => `
-        <tr class="border-b hover:bg-green-50">
+        <tr class="border-b hover:bg-green-50 cursor-pointer" onclick="showCommodityDetail(${index})">
             <td class="px-2 py-3 text-gray-600 text-xs">${index + 1}</td>
             <td class="px-2 py-3">
                 <div class="flex items-center gap-1">
@@ -4615,7 +4629,23 @@ function enterSales(cropId) {
                     </a>
                 </div>
             </td>
-            <td class="px-2 py-3 text-right font-semibold text-xs whitespace-nowrap">TZS ${item.price.toLocaleString()}</td>
+           <td class="px-2 py-3 text-right">
+    <div class="flex flex-col items-end gap-0.5">
+        ${item.price_min && item.price_min !== item.price ? `
+            <span class="font-semibold text-xs whitespace-nowrap">
+                ${item.price_min.toLocaleString()} - ${item.price.toLocaleString()} TZS
+            </span>
+            <span class="text-[10px] text-gray-500 whitespace-nowrap">
+                avg ${Math.round((item.price + item.price_min) / 2).toLocaleString()} TZS/${item.unit === 'per kg' ? 'kg' : item.unit}
+            </span>
+        ` : `
+            <span class="font-semibold text-xs whitespace-nowrap">TZS ${item.price.toLocaleString()}</span>
+        `}
+        ${item.unit_kg_equivalent && item.unit !== 'per kg' ? `
+            <span class="text-[10px] text-blue-600 whitespace-nowrap">≈${item.unit_kg_equivalent.toLocaleString()}/kg</span>
+        ` : ''}
+    </div>
+</td>
             <td class="px-2 py-3 text-right">
                 <div class="flex flex-col gap-1 items-end">
                     ${item.change !== null && item.change !== undefined ? `
@@ -4625,13 +4655,105 @@ function enterSales(cropId) {
                     ` : `
                         <span class="text-gray-400 text-xs">— (7d)</span>
                     `}
-                    <button onclick="event.stopPropagation(); showPriceHistory('${item.nameEn}', '${item.market}', '${item.region}')" class="text-[10px] text-blue-600 hover:text-blue-700 font-semibold">
-                        📊 History
-                    </button>
+                    
                 </div>
             </td>
         </tr>
     `).join('');
+}
+
+function showCommodityDetail(index) {
+    const item = commodities[index];
+    if (!item) return;
+
+    const avgPrice = item.price_min && item.price_min !== item.price
+        ? Math.round((item.price + item.price_min) / 2)
+        : item.price;
+
+    const modal = document.createElement('div');
+    modal.id = 'commodityDetailModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-3xl">${item.emoji}</span>
+                    <div>
+                        <h3 class="font-bold text-lg">${item.name}</h3>
+                        <p class="text-xs text-green-100">${item.market}, ${item.region}</p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('commodityDetailModal').remove()"
+                    class="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="p-5 space-y-4">
+
+                <!-- Retail Price -->
+                <div class="bg-green-50 rounded-xl p-4 border border-green-100">
+                    <p class="text-xs font-bold text-green-700 uppercase tracking-wide mb-2">🛒 Retail Price</p>
+                    ${item.price_min && item.price_min !== item.price ? `
+                        <p class="text-2xl font-bold text-gray-800">
+                            ${item.price_min.toLocaleString()} - ${item.price.toLocaleString()}
+                            <span class="text-sm font-normal text-gray-500">TZS/${item.unit === 'per kg' ? 'kg' : item.unit?.replace('per ', '') || 'kg'}</span>
+                        </p>
+                        <p class="text-sm text-gray-600 mt-1">
+                            avg <strong>${avgPrice.toLocaleString()} TZS</strong>
+                        </p>
+                    ` : `
+                        <p class="text-2xl font-bold text-gray-800">
+                            ${item.price.toLocaleString()}
+                            <span class="text-sm font-normal text-gray-500">TZS/kg</span>
+                        </p>
+                    `}
+                    ${item.unit_kg_equivalent && item.unit !== 'per kg' ? `
+                        <p class="text-xs text-blue-600 mt-1">≈ ${item.unit_kg_equivalent.toLocaleString()} TZS/kg equivalent</p>
+                    ` : ''}
+                </div>
+
+                <!-- Wholesale Price (only if available) -->
+                ${item.price_wholesale ? `
+                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                        <p class="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">📦 Wholesale Price</p>
+                        <p class="text-2xl font-bold text-gray-800">
+                            ${item.price_wholesale.toLocaleString()}
+                            <span class="text-sm font-normal text-gray-500">TZS/${item.wholesale_unit || 'sack'}</span>
+                        </p>
+                    </div>
+                ` : ''}
+
+                <!-- 7d Change -->
+                ${item.change !== null && item.change !== undefined ? `
+                    <div class="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                        <span class="text-sm text-gray-600">7-day change</span>
+                        <span class="font-bold text-sm ${item.change >= 0 ? 'text-green-600' : 'text-red-600'}">
+                            ${item.change >= 0 ? '↑' : '↓'} ${Math.abs(item.change).toFixed(1)}%
+                        </span>
+                    </div>
+                ` : ''}
+
+                <!-- History Button -->
+                <button onclick="document.getElementById('commodityDetailModal').remove(); showPriceHistory('${item.nameEn}', '${item.market}', '${item.region}')"
+                    class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2">
+                    📊 View Price History
+                </button>
+
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close on outside click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
+    });
 }
 
 async function refreshPrices() {
