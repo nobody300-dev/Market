@@ -1444,6 +1444,13 @@ c
         </div>
     </div>
     <div class="p-2">
+        <!-- Supplier Dashboard Button - hidden for regular users -->
+        <button id="supplierDashboardBtn" onclick="openSupplierDashboard(); toggleUserMenu();" class="hidden w-full px-4 py-3 text-left hover:bg-green-50 rounded-lg text-sm flex items-center gap-3 text-green-700 font-semibold border-b mb-1">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 5h2a2 2 0 002-2v-2a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2z"/>
+            </svg>
+            <span>🏪 My Supplier Dashboard</span>
+        </button>
         <button onclick="showProfileModal()" aria-label="open user profile" class="w-full px-4 py-3 text-left hover:bg-gray-100 rounded-lg text-sm flex items-center gap-3">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
@@ -2711,6 +2718,9 @@ window.addEventListener('offline', () => {
                     
                     // Load crops and update UI
                     loadActiveCrops();
+
+                    // Check role and show supplier button if needed
+                    checkUserRole();
                 }
                 
                 if (event === 'SIGNED_OUT') {
@@ -2826,6 +2836,559 @@ async function checkAndShowUserBadge() {
         console.error('Badge check error:', error);
     }
 }
+    // ============================================
+// SUPPLIER DASHBOARD
+// ============================================
+let supplierProfile = null;
+
+async function openSupplierDashboard() {
+    if (!currentUser) { showToast('Please sign in first', 'warning'); return; }
+    
+    document.getElementById('supplierDashboard').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    // Load supplier profile
+    await loadSupplierProfile();
+    
+    // Show profile tab by default
+    switchSupplierTab('profile', document.getElementById('sTab-profile'));
+}
+
+function closeSupplierDashboard() {
+    document.getElementById('supplierDashboard').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function switchSupplierTab(tab, btn) {
+    document.querySelectorAll('.supplier-tab').forEach(b => {
+        b.classList.remove('bg-green-600', 'text-white');
+        b.classList.add('bg-white', 'text-gray-700');
+    });
+    if (btn) {
+        btn.classList.remove('bg-white', 'text-gray-700');
+        btn.classList.add('bg-green-600', 'text-white');
+    }
+    
+    if (tab === 'profile') renderSupplierProfile();
+    else if (tab === 'listings') renderSupplierListings();
+    else if (tab === 'chats') renderSupplierChats();
+    else if (tab === 'analytics') renderSupplierAnalytics();
+}
+
+async function loadSupplierProfile() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('user_profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (error) throw error;
+        supplierProfile = data;
+        
+        // Update header
+        document.getElementById('supplierBusinessName').textContent = 
+            data.business_name || 'Your Business Name';
+        
+        // Show verified badge if applicable
+        const { data: badge } = await supabaseClient
+            .from('user_badges')
+            .select('badge_type')
+            .eq('user_id', currentUser.id)
+            .eq('badge_type', 'contributor')
+            .maybeSingle();
+        
+        if (badge) {
+            document.getElementById('supplierVerifiedBadge').classList.remove('hidden');
+        }
+        
+    } catch (error) {
+        console.error('Load supplier profile error:', error);
+    }
+}
+
+function renderSupplierProfile() {
+    const p = supplierProfile;
+    if (!p) return;
+    
+    const images = p.business_images || [];
+    
+    document.getElementById('supplierTabContent').innerHTML = `
+        <div class="space-y-6">
+            <!-- Business Images -->
+            <div class="bg-white rounded-2xl shadow p-5">
+                <h3 class="font-bold text-gray-800 mb-4">📸 Business Images (${images.filter(Boolean).length + (p.business_logo_url ? 1 : 0)}/3)</h3>
+                <div class="grid grid-cols-3 gap-3">
+                    <!-- Logo slot -->
+                    <div class="relative">
+                        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-dashed border-green-400">
+                            ${p.business_logo_url ? `
+                                <img src="${p.business_logo_url}" class="w-full h-full object-cover">
+                                <button onclick="removeSupplierImage('logo')" 
+                                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+                            ` : `
+                                <label class="w-full h-full flex flex-col items-center justify-center cursor-pointer">
+                                    <span class="text-2xl">🏪</span>
+                                    <span class="text-xs text-gray-500 mt-1">Logo</span>
+                                    <input type="file" accept="image/*" class="hidden" onchange="uploadSupplierImage(this, 'logo')">
+                                </label>
+                            `}
+                        </div>
+                        <p class="text-xs text-center text-gray-500 mt-1">Logo</p>
+                    </div>
+                    
+                    <!-- Image slot 1 -->
+                    <div class="relative">
+                        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300">
+                            ${images[0] ? `
+                                <img src="${images[0]}" class="w-full h-full object-cover">
+                                <button onclick="removeSupplierImage(0)"
+                                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+                            ` : `
+                                <label class="w-full h-full flex flex-col items-center justify-center cursor-pointer">
+                                    <span class="text-2xl">📷</span>
+                                    <span class="text-xs text-gray-500 mt-1">Photo</span>
+                                    <input type="file" accept="image/*" class="hidden" onchange="uploadSupplierImage(this, 0)">
+                                </label>
+                            `}
+                        </div>
+                        <p class="text-xs text-center text-gray-500 mt-1">Photo 1</p>
+                    </div>
+                    
+                    <!-- Image slot 2 -->
+                    <div class="relative">
+                        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300">
+                            ${images[1] ? `
+                                <img src="${images[1]}" class="w-full h-full object-cover">
+                                <button onclick="removeSupplierImage(1)"
+                                    class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+                            ` : `
+                                <label class="w-full h-full flex flex-col items-center justify-center cursor-pointer">
+                                    <span class="text-2xl">📷</span>
+                                    <span class="text-xs text-gray-500 mt-1">Photo</span>
+                                    <input type="file" accept="image/*" class="hidden" onchange="uploadSupplierImage(this, 1)">
+                                </label>
+                            `}
+                        </div>
+                        <p class="text-xs text-center text-gray-500 mt-1">Photo 2</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Business Info Form -->
+            <div class="bg-white rounded-2xl shadow p-5">
+                <h3 class="font-bold text-gray-800 mb-4">✏️ Business Information</h3>
+                <form onsubmit="saveSupplierProfile(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Business Name</label>
+                        <input type="text" id="sBusinessName" value="${p.business_name || ''}" required
+                            placeholder="e.g., Kilosa Agrovet Center"
+                            class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Business Type</label>
+                        <select id="sBusinessType" class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            <option value="agrovet" ${p.business_type === 'agrovet' ? 'selected' : ''}>🏪 Agrovet</option>
+                            <option value="seeds" ${p.business_type === 'seeds' ? 'selected' : ''}>🌱 Seeds Supplier</option>
+                            <option value="fertilizer" ${p.business_type === 'fertilizer' ? 'selected' : ''}>🧪 Fertilizer Supplier</option>
+                            <option value="equipment" ${p.business_type === 'equipment' ? 'selected' : ''}>🚜 Equipment</option>
+                            <option value="pesticides" ${p.business_type === 'pesticides' ? 'selected' : ''}>🦟 Pesticides</option>
+                            <option value="veterinary" ${p.business_type === 'veterinary' ? 'selected' : ''}>🐄 Veterinary</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Business Phone
+                            <span class="text-xs text-gray-400 font-normal ml-1">(shown to farmers for calls only)</span>
+                        </label>
+                        <input type="tel" id="sBusinessPhone" value="${p.business_phone || ''}"
+                            placeholder="+255 XXX XXX XXX"
+                            class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Region</label>
+                        <input type="text" id="sBusinessRegion" value="${p.region || ''}"
+                            placeholder="e.g., Morogoro"
+                            class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                        💾 Save Profile
+                    </button>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+async function uploadSupplierImage(input, slot) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('Image too large. Max 5MB', 'error');
+        return;
+    }
+    
+    showToast('Uploading image...', 'info');
+    
+    try {
+        const fileName = `suppliers/${currentUser.id}/${slot}_${Date.now()}.${file.name.split('.').pop()}`;
+        
+        const { error: uploadError } = await supabaseClient.storage
+            .from('community-images')
+            .upload(fileName, file, { upsert: true });
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabaseClient.storage
+            .from('community-images')
+            .getPublicUrl(fileName);
+        
+        const imageUrl = urlData.publicUrl;
+        
+        // Save to profile
+        if (slot === 'logo') {
+            const { error } = await supabaseClient
+                .from('user_profiles')
+                .update({ business_logo_url: imageUrl })
+                .eq('id', currentUser.id);
+            if (error) throw error;
+        } else {
+            const images = supplierProfile.business_images || [];
+            images[slot] = imageUrl;
+            const { error } = await supabaseClient
+                .from('user_profiles')
+                .update({ business_images: images })
+                .eq('id', currentUser.id);
+            if (error) throw error;
+        }
+        
+        showToast('Image uploaded successfully', 'success');
+        await loadSupplierProfile();
+        renderSupplierProfile();
+        
+    } catch (error) {
+        showToast('Upload failed: ' + error.message, 'error');
+    }
+}
+
+async function removeSupplierImage(slot) {
+    if (!confirm('Remove this image?')) return;
+    
+    try {
+        if (slot === 'logo') {
+            await supabaseClient
+                .from('user_profiles')
+                .update({ business_logo_url: null })
+                .eq('id', currentUser.id);
+        } else {
+            const images = supplierProfile.business_images || [];
+            images[slot] = null;
+            await supabaseClient
+                .from('user_profiles')
+                .update({ business_images: images })
+                .eq('id', currentUser.id);
+        }
+        
+        showToast('Image removed', 'success');
+        await loadSupplierProfile();
+        renderSupplierProfile();
+        
+    } catch (error) {
+        showToast('Error removing image: ' + error.message, 'error');
+    }
+}
+
+async function saveSupplierProfile(e) {
+    e.preventDefault();
+    
+    try {
+        const { error } = await supabaseClient
+            .from('user_profiles')
+            .update({
+                business_name: document.getElementById('sBusinessName').value.trim(),
+                business_type: document.getElementById('sBusinessType').value,
+                business_phone: document.getElementById('sBusinessPhone').value.trim(),
+                region: document.getElementById('sBusinessRegion').value.trim(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', currentUser.id);
+        
+        if (error) throw error;
+        
+        showToast('Profile saved successfully', 'success');
+        await loadSupplierProfile();
+        document.getElementById('supplierBusinessName').textContent = 
+            document.getElementById('sBusinessName').value;
+        
+    } catch (error) {
+        showToast('Save failed: ' + error.message, 'error');
+    }
+}
+
+async function renderSupplierListings() {
+    const container = document.getElementById('supplierTabContent');
+    container.innerHTML = '<div class="text-center py-8"><div class="loading-spinner"></div></div>';
+    
+    try {
+        const { data: listings, error } = await supabaseClient
+            .from('marketplace_listings')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        container.innerHTML = `
+            <div class="space-y-4">
+                <button onclick="showCreateListingModal('sell')"
+                    class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2">
+                    + Add New Listing
+                </button>
+                
+                ${!listings || listings.length === 0 ? `
+                    <div class="bg-white rounded-2xl shadow p-12 text-center">
+                        <div class="text-5xl mb-3">📦</div>
+                        <p class="text-gray-500 font-semibold">No listings yet</p>
+                        <p class="text-sm text-gray-400 mt-1">Add your first product listing above</p>
+                    </div>
+                ` : listings.map(listing => `
+                    <div class="bg-white rounded-xl shadow p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-800">${listing.item_name}</h3>
+                                <p class="text-sm text-gray-500">${listing.category || ''}</p>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${listing.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+                                ${listing.status}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-sm mb-3">
+                            <div>
+                                <p class="text-gray-500 text-xs">Price</p>
+                                <p class="font-semibold">${listing.price_per_unit?.toLocaleString()} TZS</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 text-xs">Quantity</p>
+                                <p class="font-semibold">${listing.quantity} ${listing.unit}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 text-xs">Views</p>
+                                <p class="font-semibold">${listing.views_count || 0}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="deleteSupplierListing('${listing.id}')"
+                                class="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100">
+                                Delete
+                            </button>
+                            <button onclick="toggleListingStatus('${listing.id}', '${listing.status}')"
+                                class="flex-1 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100">
+                                ${listing.status === 'active' ? 'Deactivate' : 'Activate'}
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg">Error: ${error.message}</div>`;
+    }
+}
+
+async function deleteSupplierListing(listingId) {
+    if (!confirm('Delete this listing?')) return;
+    try {
+        const { error } = await supabaseClient
+            .from('marketplace_listings')
+            .delete()
+            .eq('id', listingId)
+            .eq('user_id', currentUser.id);
+        if (error) throw error;
+        showToast('Listing deleted', 'success');
+        renderSupplierListings();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function toggleListingStatus(listingId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    try {
+        const { error } = await supabaseClient
+            .from('marketplace_listings')
+            .update({ status: newStatus })
+            .eq('id', listingId)
+            .eq('user_id', currentUser.id);
+        if (error) throw error;
+        showToast(`Listing ${newStatus}`, 'success');
+        renderSupplierListings();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function renderSupplierChats() {
+    const container = document.getElementById('supplierTabContent');
+    container.innerHTML = '<div class="text-center py-8"><div class="loading-spinner"></div></div>';
+    
+    try {
+        const { data: conversations, error } = await supabaseClient
+            .from('conversations')
+            .select('*')
+            .eq('seller_id', currentUser.id)
+            .order('last_message_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (!conversations || conversations.length === 0) {
+            container.innerHTML = `
+                <div class="bg-white rounded-2xl shadow p-12 text-center">
+                    <div class="text-5xl mb-3">💬</div>
+                    <p class="text-gray-500 font-semibold">No customer chats yet</p>
+                    <p class="text-sm text-gray-400 mt-1">Chats will appear here when farmers contact you</p>
+                </div>`;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="space-y-3">
+                ${conversations.map(conv => `
+                    <div onclick="openSupplierChat('${conv.id}', '${conv.buyer_name}')"
+                        class="bg-white rounded-xl shadow p-4 cursor-pointer hover:shadow-md transition">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-lg flex-shrink-0">
+                                ${conv.buyer_name?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start">
+                                    <p class="font-semibold text-gray-800">${conv.buyer_name}</p>
+                                    <p class="text-xs text-gray-400">${formatTimeAgo(conv.last_message_at)}</p>
+                                </div>
+                                <p class="text-sm text-gray-500 truncate">${conv.last_message || 'No messages yet'}</p>
+                            </div>
+                            ${conv.seller_unread_count > 0 ? `
+                                <span class="bg-green-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                    ${conv.seller_unread_count}
+                                </span>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg">Error: ${error.message}</div>`;
+    }
+}
+
+async function openSupplierChat(conversationId, buyerName) {
+    // Reuse existing chat modal but from supplier perspective
+    currentChatId = conversationId;
+    currentChatPartner = { name: buyerName };
+    
+    // Update modal header with business name
+    const businessName = supplierProfile?.business_name || 'Supplier';
+    document.getElementById('chatUserName').textContent = buyerName;
+    document.getElementById('chatUserInitial').textContent = buyerName.charAt(0).toUpperCase();
+    document.getElementById('chatListingItem').textContent = `via ${businessName}`;
+    
+    await loadChatMessages();
+    
+    // Mark as read for seller
+    await supabaseClient
+        .from('conversations')
+        .update({ seller_unread_count: 0 })
+        .eq('id', conversationId);
+    
+    document.getElementById('chatModal').classList.remove('hidden');
+}
+
+async function renderSupplierAnalytics() {
+    const container = document.getElementById('supplierTabContent');
+    container.innerHTML = '<div class="text-center py-8"><div class="loading-spinner"></div></div>';
+    
+    try {
+        // Get listing count
+        const { count: listingCount } = await supabaseClient
+            .from('marketplace_listings')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', currentUser.id)
+            .eq('status', 'active');
+        
+        // Get total views across all listings
+        const { data: listings } = await supabaseClient
+            .from('marketplace_listings')
+            .select('views_count')
+            .eq('user_id', currentUser.id);
+        
+        const totalViews = listings?.reduce((sum, l) => sum + (l.views_count || 0), 0) || 0;
+        
+        // Get chat count
+        const { count: chatCount } = await supabaseClient
+            .from('conversations')
+            .select('*', { count: 'exact', head: true })
+            .eq('seller_id', currentUser.id);
+        
+        // Profile views
+        const profileViews = supplierProfile?.profile_views || 0;
+        
+        container.innerHTML = `
+            <div class="space-y-4">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white rounded-xl shadow p-4 text-center">
+                        <p class="text-3xl font-bold text-green-600">${listingCount || 0}</p>
+                        <p class="text-sm text-gray-500 mt-1">Active Listings</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow p-4 text-center">
+                        <p class="text-3xl font-bold text-blue-600">${totalViews}</p>
+                        <p class="text-sm text-gray-500 mt-1">Listing Views</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow p-4 text-center">
+                        <p class="text-3xl font-bold text-purple-600">${chatCount || 0}</p>
+                        <p class="text-sm text-gray-500 mt-1">Customer Chats</p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow p-4 text-center">
+                        <p class="text-3xl font-bold text-orange-600">${profileViews}</p>
+                        <p class="text-sm text-gray-500 mt-1">Profile Views</p>
+                    </div>
+                </div>
+                
+                <!-- Account Status -->
+                <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                    <h3 class="font-bold text-green-800 mb-2">📋 Account Status</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Account type</span>
+                            <span class="font-semibold text-green-700">✓ Verified Supplier</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Listing plan</span>
+                            <span class="font-semibold text-blue-600">Free tier</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Images</span>
+                            <span class="font-semibold">${(supplierProfile?.business_images?.filter(Boolean).length || 0) + (supplierProfile?.business_logo_url ? 1 : 0)}/3 used</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coming Soon -->
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                    <p class="text-sm text-blue-700 font-semibold">📈 Detailed analytics coming soon</p>
+                    <p class="text-xs text-blue-600 mt-1">Weekly reports, customer insights, and more</p>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg">Error: ${error.message}</div>`;
+    }
+                                  }
 
     // ==================== SETTINGS MANAGEMENT ====================
     function loadSettings() {
@@ -7180,6 +7743,7 @@ async function handleEmailAuth(e) {
         document.getElementById('authLoadingOverlay').classList.add('hidden');
     }
 }
+    
 // Google Sign In
 async function signInWithGoogle() {
     document.getElementById('authLoadingOverlay').classList.remove('hidden');
@@ -7220,7 +7784,36 @@ async function signOut() {
         showToast(error.message, 'error');
     }
 }
-
+async function checkUserRole() {
+    if (!currentUser) return;
+    
+    try {
+        const { data, error } = await supabaseClient
+            .from('user_profiles')
+            .select('role, business_name')
+            .eq('id', currentUser.id)
+            .single();
+        
+        if (error) return;
+        
+        currentUser.role = data?.role || 'farmer';
+        currentUser.businessName = data?.business_name || '';
+        
+        // Show supplier dashboard button in user menu if supplier
+        const supplierBtn = document.getElementById('supplierDashboardBtn');
+        if (supplierBtn) {
+            if (data?.role === 'supplier') {
+                supplierBtn.classList.remove('hidden');
+            } else {
+                supplierBtn.classList.add('hidden');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Role check error:', error);
+    }
+    }
+    
 // Show region selection modal for users without region
 function showRegionSelectionModal() {
     const modal = document.getElementById('regionSelectionModal');
@@ -8324,7 +8917,11 @@ function renderSuppliers(suppliers) {
     if (!suppliers || suppliers.length === 0) {
         container.innerHTML = `
             <div class="col-span-full text-center py-12">
-                <div class="text-5xl mb-3">🏪</div>
+                ${s.logo_url ? `
+            <img src="${s.logo_url}" alt="${s.name}" class="w-12 h-12 rounded-full object-cover border-2 border-green-100">
+        ` : `
+            <div class="text-3xl">${icons[s.type] || '🏪'}</div>
+        `}
                 <p class="text-gray-500 font-semibold">No suppliers available yet</p>
                 <p class="text-sm text-gray-400 mt-2">Check back soon!</p>
             </div>
@@ -9777,7 +10374,54 @@ async function calculateRegional7DayChange(commodityName, region) {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
     </svg>
 </button>
+<!-- SUPPLIER DASHBOARD -->
+<div id="supplierDashboard" class="hidden fixed inset-0 bg-gray-50 z-[200] overflow-y-auto">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-4 sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button onclick="closeSupplierDashboard()" class="p-2 hover:bg-white/20 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <div>
+                    <h1 class="text-xl font-bold">🏪 Supplier Dashboard</h1>
+                    <p id="supplierBusinessName" class="text-xs text-green-100">Loading...</p>
+                </div>
+            </div>
+            <div id="supplierVerifiedBadge" class="hidden bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+                ✓ Verified
+            </div>
+        </div>
+    </div>
 
+    <!-- Dashboard Tabs -->
+    <div class="max-w-4xl mx-auto px-4 py-4">
+        <!-- Tab Buttons -->
+        <div class="flex gap-2 mb-6 overflow-x-auto pb-1">
+            <button onclick="switchSupplierTab('profile', this)" id="sTab-profile"
+                class="supplier-tab px-4 py-2 bg-green-600 text-white rounded-lg font-semibold text-sm whitespace-nowrap">
+                👤 My Profile
+            </button>
+            <button onclick="switchSupplierTab('listings', this)" id="sTab-listings"
+                class="supplier-tab px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold text-sm shadow whitespace-nowrap">
+                📦 My Listings
+            </button>
+            <button onclick="switchSupplierTab('chats', this)" id="sTab-chats"
+                class="supplier-tab px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold text-sm shadow whitespace-nowrap">
+                💬 Customer Chats
+            </button>
+            <button onclick="switchSupplierTab('analytics', this)" id="sTab-analytics"
+                class="supplier-tab px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold text-sm shadow whitespace-nowrap">
+                📊 Analytics
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="supplierTabContent"></div>
+    </div>
+</div>
 
 </body>
 </html>
