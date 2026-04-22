@@ -3127,6 +3127,9 @@ async function saveSupplierProfile(e) {
         
 if (error) throw error;
         
+        // Reload profile first so logo_url is fresh before syncing
+        await loadSupplierProfile();
+        
         // Sync to suppliers directory
         await syncSupplierToDirectory();
         
