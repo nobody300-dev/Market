@@ -456,6 +456,16 @@ async function editSupplierDetails(userId) {
     if (businessType === null) return;
     
     const businessPhone = prompt('Business phone:', profile.business_phone || '');
+    if (businessPhone === null) return;
+
+    // Get current supplier row for rating
+    const { data: supplierRow } = await supabaseClient
+        .from('suppliers')
+        .select('rating')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    const rating = prompt('Rating (1.0 - 5.0, leave blank to keep current):', supplierRow?.rating || '');
     
     try {
         const { error } = await supabaseClient
@@ -467,6 +477,23 @@ async function editSupplierDetails(userId) {
                 updated_at: new Date().toISOString()
             })
             .eq('id', userId);
+        
+        if (error) throw error;
+
+        // Update suppliers table with rating
+        const supplierUpdate = {
+            name: businessName,
+            type: businessType,
+            phone: businessPhone || null
+        };
+        if (rating && !isNaN(parseFloat(rating))) {
+            supplierUpdate.rating = parseFloat(rating);
+        }
+
+        await supabaseClient
+            .from('suppliers')
+            .update(supplierUpdate)
+            .eq('user_id', userId);
         
         if (error) throw error;
         alert('✅ Supplier details updated');
