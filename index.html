@@ -8991,7 +8991,9 @@ function renderSuppliers(suppliers) {
         fertilizers: '🧪', 
         equipment: '🚜', 
         veterinary: '🐄', 
-        pesticides: '🦟' 
+        pesticides: '🦟',
+        agrovet: '🏪',
+        fertilizer: '🧪'
     };
     
     const container = document.getElementById('suppliersList');
@@ -8999,13 +9001,7 @@ function renderSuppliers(suppliers) {
     if (!suppliers || suppliers.length === 0) {
         container.innerHTML = `
             <div class="col-span-full text-center py-12">
-                ${s.logo_url ? `
-            <img src="${s.logo_url}" alt="${s.name}" 
-                class="w-12 h-12 rounded-full object-cover border-2 border-green-100 cursor-pointer"
-                onclick="viewSupplierImages('${s.id}')">
-        ` : `
-            <div class="text-3xl">${icons[s.type] || '🏪'}</div>
-        `}
+                <div class="text-5xl mb-3">🏪</div>
                 <p class="text-gray-500 font-semibold">No suppliers available yet</p>
                 <p class="text-sm text-gray-400 mt-2">Check back soon!</p>
             </div>
@@ -9017,20 +9013,42 @@ function renderSuppliers(suppliers) {
         <div class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition">
             <!-- Header -->
             <div class="flex items-start gap-3 mb-3">
-                <div class="text-3xl">${icons[s.type] || '🏪'}</div>
+                <!-- Logo or emoji fallback -->
+                <div class="flex-shrink-0">
+                    ${s.logo_url ? `
+                        <img src="${s.logo_url}" alt="${s.name}"
+                            class="w-14 h-14 rounded-full object-cover border-2 border-green-100 cursor-pointer"
+                            onclick="viewSupplierImages('${s.id}')">
+                    ` : `
+                        <div class="w-14 h-14 rounded-full bg-green-50 border-2 border-green-100 flex items-center justify-center text-3xl">
+                            ${icons[s.type] || '🏪'}
+                        </div>
+                    `}
+                </div>
                 <div class="flex-1">
                     <h3 class="font-bold text-base">${s.name}</h3>
-                    <p class="text-xs text-gray-500 capitalize">${s.type}</p>
+                    <p class="text-xs text-gray-500 capitalize">${s.type || 'Supplier'}</p>
                     ${s.is_verified ? '<span class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded mt-1">✓ Verified</span>' : ''}
                 </div>
                 ${s.rating ? `<div class="text-right"><p class="text-sm font-bold">⭐ ${s.rating}</p></div>` : ''}
             </div>
             
+            <!-- Business Images (if available) -->
+            ${s.business_images && s.business_images.filter(Boolean).length > 0 ? `
+                <div class="flex gap-2 mb-3 overflow-x-auto">
+                    ${s.business_images.filter(Boolean).map(img => `
+                        <img src="${img}" alt="Business photo"
+                            class="w-16 h-16 rounded-lg object-cover flex-shrink-0 cursor-pointer"
+                            onclick="viewSupplierImages('${s.id}')">
+                    `).join('')}
+                </div>
+            ` : ''}
+            
             <!-- Description -->
             <p class="text-sm text-gray-600 mb-3">${s.description || 'Quality agricultural supplies'}</p>
             
             <!-- Location -->
-            <p class="text-sm text-gray-600 mb-3">📍 ${s.district || s.region}</p>
+            <p class="text-sm text-gray-600 mb-3">📍 ${s.district || s.region || 'Tanzania'}</p>
             
             <!-- Services -->
             ${s.services && s.services.length > 0 ? `
@@ -9047,23 +9065,31 @@ function renderSuppliers(suppliers) {
             
             <!-- Actions -->
             <div class="grid grid-cols-2 gap-2 mb-2">
-                <a href="tel:${s.phone}" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm text-center font-semibold hover:bg-blue-700">
-                    📞 Call
-                </a>
-                <button onclick="chatWithSupplier('${s.id}', \`${s.name}\`, '${s.type}')" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">
+                ${s.phone ? `
+                    <a href="tel:${s.phone}" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm text-center font-semibold hover:bg-blue-700">
+                        📞 Call
+                    </a>
+                ` : `
+                    <div class="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm text-center">
+                        No phone
+                    </div>
+                `}
+                <button onclick="chatWithSupplier('${s.id}', \`${s.name}\`, '${s.type}')" 
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">
                     💬 Chat
                 </button>
             </div>
             
             <!-- WhatsApp -->
             ${s.whatsapp ? `
-                <a href="https://wa.me/${s.whatsapp.replace(/\D/g,'')}" target="_blank" class="block px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm text-center font-semibold hover:bg-emerald-700">
+                <a href="https://wa.me/${s.whatsapp.replace(/\D/g,'')}" target="_blank" 
+                    class="block px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm text-center font-semibold hover:bg-emerald-700">
                     WhatsApp
                 </a>
             ` : ''}
         </div>
     `).join('');
-}
+    }
 
 function filterSuppliers() {
     const type = document.getElementById('supplierTypeFilter')?.value || 'all';
