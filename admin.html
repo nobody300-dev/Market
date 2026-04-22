@@ -418,7 +418,21 @@ async function setAsSupplier(userId, userName) {
             .eq('id', userId);
         
         if (error) throw error;
-        alert(`✅ ${userName} is now a supplier as "${businessName}"`);
+        
+        // Auto-create in suppliers directory
+        const { error: supplierError } = await supabaseClient
+            .from('suppliers')
+            .upsert({
+                user_id: userId,
+                name: businessName,
+                type: businessType,
+                is_verified: true,
+                created_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        
+        if (supplierError) console.warn('Supplier sync warning:', supplierError.message);
+        
+        alert(`✅ ${userName} is now a supplier as "${businessName}" and listed in directory`);
         loadManageSuppliers();
         
     } catch (error) {
