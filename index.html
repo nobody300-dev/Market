@@ -8993,7 +8993,9 @@ function renderSuppliers(suppliers) {
         container.innerHTML = `
             <div class="col-span-full text-center py-12">
                 ${s.logo_url ? `
-            <img src="${s.logo_url}" alt="${s.name}" class="w-12 h-12 rounded-full object-cover border-2 border-green-100">
+            <img src="${s.logo_url}" alt="${s.name}" 
+                class="w-12 h-12 rounded-full object-cover border-2 border-green-100 cursor-pointer"
+                onclick="viewSupplierImages('${s.id}')">
         ` : `
             <div class="text-3xl">${icons[s.type] || '🏪'}</div>
         `}
@@ -9071,6 +9073,41 @@ function filterSuppliers() {
     
     renderSuppliers(filtered);
 }
+
+    async function viewSupplierImages(supplierId) {
+    const { data: supplier } = await supabaseClient
+        .from('suppliers')
+        .select('name, logo_url, business_images')
+        .eq('id', supplierId)
+        .single();
+    
+    if (!supplier) return;
+    
+    const allImages = [
+        supplier.logo_url,
+        ...(supplier.business_images || [])
+    ].filter(Boolean);
+    
+    if (allImages.length === 0) return;
+    
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="max-w-lg w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-white font-bold text-lg">${supplier.name}</h3>
+                <button onclick="this.closest('.fixed').remove()" class="text-white text-2xl">✕</button>
+            </div>
+            <div class="grid grid-cols-${allImages.length === 1 ? '1' : allImages.length === 2 ? '2' : '3'} gap-2">
+                ${allImages.map(img => `
+                    <img src="${img}" class="w-full aspect-square object-cover rounded-lg">
+                `).join('')}
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    }
 
 // ============================================
 // SUPPLIER CHAT
