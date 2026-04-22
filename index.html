@@ -3144,6 +3144,10 @@ if (error) throw error;
     }
 }
     async function syncSupplierToDirectory() {
+       console.log('🔄 Syncing...', {
+    logo: supplierProfile.business_logo_url,
+    name: supplierProfile.business_name
+}); 
     if (!currentUser || !supplierProfile) return;
     
     try {
@@ -6575,13 +6579,13 @@ function switchAboutTab(tab) {
                     <div class="border-l-4 border-blue-500 pl-4 py-2">
                         <h3 class="font-bold flex items-center gap-2">
                             <span>🏛️</span>
-                            <span>Government AMIS Data</span>
+                            <span> Data</span>
                         </h3>
                         <p class="text-sm text-gray-600 mt-1">
                             <strong>What:</strong> Market prices from Tanzania's official Agricultural Market Information System<br>
                             <strong>Coverage:</strong> 20+ major markets nationwide<br>
                             <strong>Update frequency:</strong> 2-3 times per week<br>
-                            <strong>Accuracy:</strong> Official government data collected by trained market officers
+                            <strong>Accuracy:</strong> 
                         </p>
                     </div>
                     
