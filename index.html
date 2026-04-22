@@ -3125,9 +3125,9 @@ async function saveSupplierProfile(e) {
         
         console.log('📊 Response:', { data, error });
         
-        if (error) throw error;
+if (error) throw error;
         
-        // Auto-sync to suppliers directory
+        // Sync to suppliers directory
         await syncSupplierToDirectory();
         
         showToast('Profile saved successfully', 'success');
