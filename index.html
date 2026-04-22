@@ -3066,6 +3066,7 @@ async function uploadSupplierImage(input, slot) {
         
         showToast('Image uploaded successfully', 'success');
         await loadSupplierProfile();
+        await syncSupplierToDirectory();
         renderSupplierProfile();
         
     } catch (error) {
@@ -3104,18 +3105,30 @@ async function saveSupplierProfile(e) {
     e.preventDefault();
     
     try {
-        const { error } = await supabaseClient
+        console.log('💾 Saving profile for user:', currentUser.id);
+        
+        const updateData = {
+            business_name: document.getElementById('sBusinessName').value.trim(),
+            business_type: document.getElementById('sBusinessType').value,
+            business_phone: document.getElementById('sBusinessPhone').value.trim(),
+            region: document.getElementById('sBusinessRegion').value.trim(),
+            updated_at: new Date().toISOString()
+        };
+        
+        console.log('📦 Update data:', updateData);
+        
+        const { data, error } = await supabaseClient
             .from('user_profiles')
-            .update({
-                business_name: document.getElementById('sBusinessName').value.trim(),
-                business_type: document.getElementById('sBusinessType').value,
-                business_phone: document.getElementById('sBusinessPhone').value.trim(),
-                region: document.getElementById('sBusinessRegion').value.trim(),
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', currentUser.id);
+            .update(updateData)
+            .eq('id', currentUser.id)
+            .select();
+        
+        console.log('📊 Response:', { data, error });
         
         if (error) throw error;
+        
+        // Auto-sync to suppliers directory
+        await syncSupplierToDirectory();
         
         showToast('Profile saved successfully', 'success');
         await loadSupplierProfile();
@@ -3123,9 +3136,71 @@ async function saveSupplierProfile(e) {
             document.getElementById('sBusinessName').value;
         
     } catch (error) {
+        console.error('❌ Save error:', error);
         showToast('Save failed: ' + error.message, 'error');
     }
 }
+    async function syncSupplierToDirectory() {
+    if (!currentUser || !supplierProfile) return;
+    
+    try {
+        const businessName = document.getElementById('sBusinessName')?.value.trim() 
+            || supplierProfile.business_name;
+        const businessType = document.getElementById('sBusinessType')?.value 
+            || supplierProfile.business_type;
+        const businessPhone = document.getElementById('sBusinessPhone')?.value.trim() 
+            || supplierProfile.business_phone;
+        const businessRegion = document.getElementById('sBusinessRegion')?.value.trim() 
+            || supplierProfile.region;
+
+        // Check if already in suppliers table
+        const { data: existing } = await supabaseClient
+            .from('suppliers')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+
+        if (existing) {
+            // Update existing supplier listing
+            const { error } = await supabaseClient
+                .from('suppliers')
+                .update({
+                    name: businessName,
+                    type: businessType,
+                    phone: businessPhone,
+                    region: businessRegion,
+                    logo_url: supplierProfile.business_logo_url || null,
+                    business_images: supplierProfile.business_images || [],
+                    is_verified: true
+                })
+                .eq('user_id', currentUser.id);
+            
+            if (error) throw error;
+            console.log('✅ Supplier directory updated');
+        } else {
+            // Create new supplier listing
+            const { error } = await supabaseClient
+                .from('suppliers')
+                .insert({
+                    user_id: currentUser.id,
+                    name: businessName,
+                    type: businessType,
+                    phone: businessPhone,
+                    region: businessRegion,
+                    logo_url: supplierProfile.business_logo_url || null,
+                    business_images: supplierProfile.business_images || [],
+                    is_verified: true,
+                    created_at: new Date().toISOString()
+                });
+            
+            if (error) throw error;
+            console.log('✅ Supplier added to directory');
+        }
+
+    } catch (error) {
+        console.error('Sync error:', error);
+    }
+    }
 
 async function renderSupplierListings() {
     const container = document.getElementById('supplierTabContent');
