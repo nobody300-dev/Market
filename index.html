@@ -1474,6 +1474,13 @@ c
             <span>About Us</span>
         </button>
         
+        <button onclick="openFeedbackForm(); toggleUserMenu();" class="w-full px-4 py-3 text-left hover:bg-blue-50 rounded-lg text-sm flex items-center gap-3 text-blue-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+            </svg>
+            <span>💬 Send Feedback</span>
+        </button>
+        
         <button onclick="signOut()" aria-label="signOut" class="w-full px-4 py-3 text-left hover:bg-red-50 rounded-lg text-sm flex items-center gap-3 text-red-600">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
@@ -3239,61 +3246,54 @@ async function renderSupplierListings() {
     container.innerHTML = '<div class="text-center py-8"><div class="loading-spinner"></div></div>';
     
     try {
-        const { data: listings, error } = await supabaseClient
-            .from('marketplace_listings')
+        const { data: products, error } = await supabaseClient
+            .from('supplier_products')
             .select('*')
-            .eq('user_id', currentUser.id)
+            .eq('supplier_id', currentUser.id)
             .order('created_at', { ascending: false });
         
         if (error) throw error;
         
         container.innerHTML = `
             <div class="space-y-4">
-                <button onclick="showCreateListingModal('sell')"
-                    class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2">
-                    + Add New Listing
+                <button onclick="showAddProductModal()"
+                    class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition">
+                    + Add Product to Catalogue
                 </button>
                 
-                ${!listings || listings.length === 0 ? `
+                ${!products || products.length === 0 ? `
                     <div class="bg-white rounded-2xl shadow p-12 text-center">
                         <div class="text-5xl mb-3">📦</div>
-                        <p class="text-gray-500 font-semibold">No listings yet</p>
-                        <p class="text-sm text-gray-400 mt-1">Add your first product listing above</p>
+                        <p class="text-gray-500 font-semibold">No products yet</p>
+                        <p class="text-sm text-gray-400 mt-1">Add your first product above</p>
                     </div>
-                ` : listings.map(listing => `
+                ` : products.map(p => `
                     <div class="bg-white rounded-xl shadow p-4">
                         <div class="flex items-start justify-between mb-2">
                             <div class="flex-1">
-                                <h3 class="font-bold text-gray-800">${listing.item_name}</h3>
-                                <p class="text-sm text-gray-500">${listing.category || ''}</p>
+                                <h3 class="font-bold text-gray-800">${p.name}</h3>
+                                <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full capitalize">${p.category}</span>
                             </div>
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${listing.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
-                                ${listing.status}
+                            <div class="text-right">
+                                <p class="font-bold text-green-600">${p.price.toLocaleString()} TZS</p>
+                                <p class="text-xs text-gray-500">${p.unit}</p>
+                            </div>
+                        </div>
+                        ${p.description ? `<p class="text-sm text-gray-500 mb-2">${p.description}</p>` : ''}
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs px-2 py-0.5 rounded-full ${p.availability === 'in_stock' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}">
+                                ${p.availability === 'in_stock' ? '✓ In Stock' : '✗ Out of Stock'}
                             </span>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 text-sm mb-3">
-                            <div>
-                                <p class="text-gray-500 text-xs">Price</p>
-                                <p class="font-semibold">${listing.price_per_unit?.toLocaleString()} TZS</p>
+                            <div class="flex gap-2">
+                                <button onclick="toggleProductAvailability('${p.id}', '${p.availability}')"
+                                    class="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200">
+                                    ${p.availability === 'in_stock' ? 'Mark Out' : 'Mark In'}
+                                </button>
+                                <button onclick="deleteSupplierProduct('${p.id}')"
+                                    class="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-100">
+                                    Delete
+                                </button>
                             </div>
-                            <div>
-                                <p class="text-gray-500 text-xs">Quantity</p>
-                                <p class="font-semibold">${listing.quantity} ${listing.unit}</p>
-                            </div>
-                            <div>
-                                <p class="text-gray-500 text-xs">Views</p>
-                                <p class="font-semibold">${listing.views_count || 0}</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="deleteSupplierListing('${listing.id}')"
-                                class="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100">
-                                Delete
-                            </button>
-                            <button onclick="toggleListingStatus('${listing.id}', '${listing.status}')"
-                                class="flex-1 px-3 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100">
-                                ${listing.status === 'active' ? 'Deactivate' : 'Activate'}
-                            </button>
                         </div>
                     </div>
                 `).join('')}
@@ -3304,7 +3304,154 @@ async function renderSupplierListings() {
         container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg">Error: ${error.message}</div>`;
     }
 }
+function showAddProductModal() {
+    const modal = document.createElement('div');
+    modal.id = 'addProductModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-[300] flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center rounded-t-2xl">
+                <h2 class="text-lg font-bold text-gray-800">➕ Add Product</h2>
+                <button onclick="document.getElementById('addProductModal').remove()" 
+                    class="text-gray-500 text-2xl">&times;</button>
+            </div>
+            <form onsubmit="submitNewProduct(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Product Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="newProductName" required
+                        placeholder="e.g., NPK Fertilizer 50kg"
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Category <span class="text-red-500">*</span></label>
+                    <select id="newProductCategory" required
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        <option value="">Select category...</option>
+                        <option value="fertilizer">🧪 Fertilizer</option>
+                        <option value="pesticide">🦟 Pesticide</option>
+                        <option value="herbicide">🌿 Herbicide</option>
+                        <option value="seeds">🌱 Seeds</option>
+                        <option value="veterinary">🐄 Veterinary</option>
+                        <option value="equipment">🚜 Equipment</option>
+                        <option value="fungicide">🍄 Fungicide</option>
+                        <option value="other">📦 Other</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Price (TZS) <span class="text-red-500">*</span></label>
+                        <input type="number" id="newProductPrice" required min="1"
+                            placeholder="e.g., 45000"
+                            class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Unit <span class="text-red-500">*</span></label>
+                        <select id="newProductUnit" required
+                            class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                            <option value="per kg">per kg</option>
+                            <option value="per litre">per litre</option>
+                            <option value="per packet">per packet</option>
+                            <option value="per bag (50kg)">per bag (50kg)</option>
+                            <option value="per bottle">per bottle</option>
+                            <option value="per piece">per piece</option>
+                            <option value="per set">per set</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Description (Optional)</label>
+                    <textarea id="newProductDescription" rows="2"
+                        placeholder="Brief product description..."
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Availability</label>
+                    <select id="newProductAvailability"
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                        <option value="in_stock">✓ In Stock</option>
+                        <option value="out_of_stock">✗ Out of Stock</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('addProductModal').remove()"
+                        class="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">
+                        Add Product
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
 
+async function submitNewProduct(e) {
+    e.preventDefault();
+    
+    try {
+        const { error } = await supabaseClient
+            .from('supplier_products')
+            .insert({
+                supplier_id: currentUser.id,
+                name: document.getElementById('newProductName').value.trim(),
+                category: document.getElementById('newProductCategory').value,
+                price: parseFloat(document.getElementById('newProductPrice').value),
+                unit: document.getElementById('newProductUnit').value,
+                description: document.getElementById('newProductDescription').value.trim() || null,
+                availability: document.getElementById('newProductAvailability').value,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            });
+        
+        if (error) throw error;
+        
+        document.getElementById('addProductModal').remove();
+        showToast('Product added successfully', 'success');
+        renderSupplierListings();
+        
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function toggleProductAvailability(productId, currentAvailability) {
+    const newAvailability = currentAvailability === 'in_stock' ? 'out_of_stock' : 'in_stock';
+    try {
+        const { error } = await supabaseClient
+            .from('supplier_products')
+            .update({ availability: newAvailability, updated_at: new Date().toISOString() })
+            .eq('id', productId)
+            .eq('supplier_id', currentUser.id);
+        
+        if (error) throw error;
+        showToast(`Marked as ${newAvailability === 'in_stock' ? 'In Stock' : 'Out of Stock'}`, 'success');
+        renderSupplierListings();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+
+async function deleteSupplierProduct(productId) {
+    if (!confirm('Delete this product?')) return;
+    try {
+        const { error } = await supabaseClient
+            .from('supplier_products')
+            .delete()
+            .eq('id', productId)
+            .eq('supplier_id', currentUser.id);
+        
+        if (error) throw error;
+        showToast('Product deleted', 'success');
+        renderSupplierListings();
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+}
+    
 async function deleteSupplierListing(listingId) {
     if (!confirm('Delete this listing?')) return;
     try {
@@ -6743,7 +6890,7 @@ function switchAboutTab(tab) {
                     <div>
                         <h3 class="font-bold">Service Availability</h3>
                         <p class="text-sm text-gray-700 mt-2">
-                            We strive to keep AgriMarket available 24/7, but cannot guarantee uninterrupted service. 
+                            We strive to keep KilimoBase available 24/7, but cannot guarantee uninterrupted service. 
                             We are not liable for losses due to service downtime.
                         </p>
                     </div>
@@ -6759,8 +6906,8 @@ function switchAboutTab(tab) {
                     <div class="border-l-4 border-green-500 pl-4 py-2">
                         <h3 class="font-bold">📧 Email Support</h3>
                         <p class="text-sm text-gray-600 mt-1">
-                            <a href="mailto:support@agrimarket.co.tz" class="text-green-600 hover:underline">
-                                support@agrimarket.co.tz
+                            <a href="mailto:support@kilimobase.co.tz" class="text-green-600 hover:underline">
+                                support@kilimobase.co.tz
                             </a>
                         </p>
                         <p class="text-xs text-gray-500 mt-1">Response time: 24-48 hours</p>
@@ -6769,8 +6916,8 @@ function switchAboutTab(tab) {
                     <div class="border-l-4 border-blue-500 pl-4 py-2">
                         <h3 class="font-bold">💬 WhatsApp</h3>
                         <p class="text-sm text-gray-600 mt-1">
-                            <a href="https://wa.me/255XXXXXXXXX" class="text-blue-600 hover:underline">
-                                +255 XXX XXX XXX
+                            <a href="https://wa.me/255619945012" class="text-blue-600 hover:underline">
+                                +255 619 945 012
                             </a>
                         </p>
                         <p class="text-xs text-gray-500 mt-1">Available: Mon-Fri, 8AM-5PM EAT</p>
@@ -6785,13 +6932,14 @@ function switchAboutTab(tab) {
                     </div>
                     
                     <div class="border-l-4 border-orange-500 pl-4 py-2">
-                        <h3 class="font-bold">🐛 Report a Bug</h3>
+                        <h3 class="font-bold">🐛 Report a Bug or Send Feedback</h3>
                         <p class="text-sm text-gray-600 mt-1">
-                            Found an issue? Let us know at:
-                            <a href="mailto:bugs@agrimarket.co.tz" class="text-orange-600 hover:underline block mt-1">
-                                bugs@agrimarket.co.tz
-                            </a>
+                            Found an issue or have a suggestion?
                         </p>
+                        <button onclick="openFeedbackForm()" 
+                            class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 w-full">
+                            💬 Open Feedback Form
+                        </button>
                     </div>
                 </div>
                 
@@ -6800,15 +6948,15 @@ function switchAboutTab(tab) {
                     <div class="space-y-3 text-sm">
                         <div>
                             <p class="font-semibold text-gray-800">How often are prices updated?</p>
-                            <p class="text-gray-600">AMIS prices: 2-3x per week. Manually verified: 2-3x per week. Scout data (coming soon): Daily.</p>
+                            <p class="text-gray-600">Prices are updated 2-3 times per week through direct market scouting and community reporting. All submissions are verified by our admin before publishing.</p>
                         </div>
                         <div>
-                            <p class="font-semibold text-gray-800">Is AgriMarket free?</p>
+                            <p class="font-semibold text-gray-800">Is KilimoBase free?</p>
                             <p class="text-gray-600">Yes! All features are currently free for farmers.</p>
                         </div>
                         <div>
                             <p class="font-semibold text-gray-800">Can I suggest new features?</p>
-                            <p class="text-gray-600">Absolutely! Email us your ideas at support@agrimarket.co.tz</p>
+                            <p class="text-gray-600">Absolutely! Use the feedback form in your profile menu or click the feedback button above.</p>
                         </div>
                     </div>
                 </div>
@@ -9097,14 +9245,20 @@ function renderSuppliers(suppliers) {
                 <button onclick="chatWithSupplier('${s.id}', \`${s.name}\`, '${s.type}')" 
                     class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700">
                     💬 Chat
-                </button>
+                </button>  
             </div>
+            ${s.phone ? `
+                <a href="tel:${s.phone}" 
+                    class="block px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm text-center font-semibold hover:bg-gray-200 transition">
+                    📞 Call
+                </a>
+            ` : ''}
         </div>
     `).join('');
     }
     
 async function viewSupplierCatalogue(userId) {
-    if (!userId || userId === 'null') {
+    if (!userId || userId === 'null' || userId === 'undefined') {
         showToast('Catalogue not available for this supplier yet', 'info');
         return;
     }
@@ -9112,49 +9266,96 @@ async function viewSupplierCatalogue(userId) {
     showLoading('Loading catalogue...');
 
     try {
-        const { data: listings, error } = await supabaseClient
-            .from('marketplace_listings')
+        // Increment profile view count
+        await supabaseClient.rpc('increment_profile_views', { user_id_input: userId })
+            .catch(() => {}); // Silent fail if function doesn't exist yet
+
+        const { data: products, error } = await supabaseClient
+            .from('supplier_products')
             .select('*')
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
+            .eq('supplier_id', userId)
+            .order('category', { ascending: true })
             .limit(5);
+
+        if (error) throw error;
+
+        // Get supplier info
+        const { data: supplier } = await supabaseClient
+            .from('suppliers')
+            .select('name, logo_url, type, region')
+            .eq('user_id', userId)
+            .maybeSingle();
 
         hideLoading();
 
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
         modal.innerHTML = `
-            <div class="bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
-                <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center rounded-t-2xl">
-                    <h2 class="text-lg font-bold text-gray-800">📋 Supplier Catalogue</h2>
-                    <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            <div class="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 rounded-t-2xl">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-3">
+                            ${supplier?.logo_url ? `
+                                <img src="${supplier.logo_url}" class="w-12 h-12 rounded-full object-cover border-2 border-white">
+                            ` : `
+                                <div class="w-12 h-12 rounded-full bg-white bg-opacity-20 flex items-center justify-center text-2xl">🏪</div>
+                            `}
+                            <div>
+                                <h2 class="font-bold text-lg">${supplier?.name || 'Supplier'}</h2>
+                                <p class="text-xs text-green-100 capitalize">${supplier?.type || ''} • ${supplier?.region || ''}</p>
+                            </div>
+                        </div>
+                        <button onclick="this.closest('.fixed').remove()" 
+                            class="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
-                <div class="p-4">
-                    ${!listings || listings.length === 0 ? `
-                        <div class="text-center py-8">
-                            <div class="text-4xl mb-3">📦</div>
+
+                <!-- Products -->
+                <div class="flex-1 overflow-y-auto p-4">
+                    ${!products || products.length === 0 ? `
+                        <div class="text-center py-12">
+                            <div class="text-5xl mb-3">📦</div>
                             <p class="text-gray-500 font-semibold">No products listed yet</p>
-                            <p class="text-sm text-gray-400 mt-1">Chat with supplier to enquire about available products</p>
+                            <p class="text-sm text-gray-400 mt-1">Chat with supplier to enquire</p>
                         </div>
                     ` : `
+                        <p class="text-xs text-gray-500 mb-3">Showing up to 5 products</p>
                         <div class="space-y-3">
-                            ${listings.map(l => `
+                            ${products.map(p => `
                                 <div class="border rounded-xl p-3 hover:shadow-sm transition">
                                     <div class="flex justify-between items-start mb-1">
-                                        <h3 class="font-semibold text-gray-800">${l.item_name}</h3>
-                                        <span class="text-sm font-bold text-green-600">${l.price_per_unit?.toLocaleString()} TZS/${l.unit}</span>
+                                        <div class="flex-1">
+                                            <h3 class="font-semibold text-gray-800">${p.name}</h3>
+                                            <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full capitalize">${p.category}</span>
+                                        </div>
+                                        <div class="text-right ml-2">
+                                            <p class="font-bold text-green-600">${p.price.toLocaleString()} TZS</p>
+                                            <p class="text-xs text-gray-500">${p.unit}</p>
+                                        </div>
                                     </div>
-                                    ${l.description ? `<p class="text-xs text-gray-500 mb-2">${l.description}</p>` : ''}
-                                    <div class="flex justify-between items-center text-xs text-gray-500">
-                                        <span>Qty: ${l.quantity} ${l.unit}</span>
-                                        <span>📍 ${l.user_region || ''}</span>
+                                    ${p.description ? `<p class="text-xs text-gray-500 mt-1">${p.description}</p>` : ''}
+                                    <div class="mt-2">
+                                        <span class="text-xs px-2 py-0.5 rounded-full ${p.availability === 'in_stock' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}">
+                                            ${p.availability === 'in_stock' ? '✓ In Stock' : '✗ Out of Stock'}
+                                        </span>
                                     </div>
                                 </div>
                             `).join('')}
-                            <p class="text-xs text-center text-gray-400 mt-2">Showing up to 5 products</p>
                         </div>
                     `}
+                </div>
+
+                <!-- Footer -->
+                <div class="p-4 border-t bg-gray-50 rounded-b-2xl">
+                    <button onclick="this.closest('.fixed').remove(); chatWithSupplier('${userId}', '${supplier?.name || 'Supplier'}', '${supplier?.type || 'agrovet'}')"
+                        class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition">
+                        💬 Chat with Supplier
+                    </button>
                 </div>
             </div>
         `;
@@ -9164,8 +9365,9 @@ async function viewSupplierCatalogue(userId) {
     } catch (error) {
         hideLoading();
         showToast('Could not load catalogue', 'error');
+        console.error('Catalogue error:', error);
     }
-    }
+}
 
     
 function filterSuppliers() {
@@ -10490,6 +10692,34 @@ async function calculateRegional7DayChange(commodityName, region) {
         return null;
     }
 }
+
+    function openFeedbackForm() {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <div>
+                    <h2 class="font-bold text-gray-800">💬 Send Feedback</h2>
+                    <p class="text-xs text-gray-500">Help us improve KilimoBase</p>
+                </div>
+                <button onclick="this.closest('.fixed').remove()" 
+                    class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <iframe 
+                src="https://docs.google.com/forms/d/e/1FAIpQLSfWtlegrbeoOhg3ugNWYU_p-H0E7PupU5_nKZpu1XvOC8k4dA/viewform?embedded=true" 
+                class="flex-1 w-full" 
+                style="min-height: 500px;"
+                frameborder="0"
+                marginheight="0"
+                marginwidth="0">
+                Loading...
+            </iframe>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    }
 
 </script>
 
