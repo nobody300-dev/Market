@@ -8860,7 +8860,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 async function startChat(listingId, sellerId, sellerName) {
-    alert('Chat button clicked! ID: ' + listingId); // ADD THIS LINE
+    
     if (!currentUser) {
         showToast('Please sign in to chat', 'warning');
         showAuthModal();
@@ -8936,14 +8936,18 @@ async function startChat(listingId, sellerId, sellerName) {
         }
         
         // Load messages
-        await loadChatMessages();
-        
-        // Show modal
-        console.log('📱 Opening chat modal...');
+        // Show modal immediately
         document.getElementById('chatModal').classList.remove('hidden');
-        setTimeout(() => {
-            document.getElementById('chatInput').focus();
-        }, 100);
+        document.getElementById('chatMessages').innerHTML = `
+            <div class="text-center py-8">
+                <div class="loading-spinner mx-auto"></div>
+                <p class="text-sm text-gray-400 mt-2">Loading messages...</p>
+            </div>
+        `;
+        setTimeout(() => document.getElementById('chatInput')?.focus(), 100);
+        
+        // Load messages in background
+        loadChatMessages();
         
     } catch (error) {
         console.error('❌ Chat error:', error);
@@ -9012,7 +9016,8 @@ async function loadChatMessages() {
         }, 100);
         
         // Mark as read
-        await supabaseClient
+        // Mark as read in background — don't await
+        supabaseClient
             .from('messages')
             .update({ is_read: true, read_at: new Date().toISOString() })
             .eq('conversation_id', currentChatId)
@@ -9266,10 +9271,8 @@ async function viewSupplierCatalogue(userId) {
     showLoading('Loading catalogue...');
 
     try {
-        // Increment profile view count
-        await supabaseClient.rpc('increment_profile_views', { user_id_input: userId })
-            .catch(() => {}); // Silent fail if function doesn't exist yet
-
+            await supabaseClient.rpc('increment_profile_views', { user_id_input: userId });
+        } catch (e) {}
         const { data: products, error } = await supabaseClient
             .from('supplier_products')
             .select('*')
@@ -9473,11 +9476,18 @@ async function chatWithSupplier(supplierId, supplierName, supplierType) {
         document.getElementById('chatListingItem').textContent = `Supplier: ${supplierType}`;
         
         // Load messages
-        await loadChatMessages();
-        
-        // Show modal
+        // Show modal immediately
         document.getElementById('chatModal').classList.remove('hidden');
-        setTimeout(() => document.getElementById('chatInput').focus(), 100);
+        document.getElementById('chatMessages').innerHTML = `
+            <div class="text-center py-8">
+                <div class="loading-spinner mx-auto"></div>
+                <p class="text-sm text-gray-400 mt-2">Loading messages...</p>
+            </div>
+        `;
+        setTimeout(() => document.getElementById('chatInput')?.focus(), 100);
+        
+        // Load messages in background
+        loadChatMessages();
         
     } catch (error) {
         console.error('❌ Supplier chat error:', error);
