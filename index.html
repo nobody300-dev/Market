@@ -9271,8 +9271,10 @@ async function viewSupplierCatalogue(userId) {
     showLoading('Loading catalogue...');
 
     try {
+        try {
             await supabaseClient.rpc('increment_profile_views', { user_id_input: userId });
         } catch (e) {}
+
         const { data: products, error } = await supabaseClient
             .from('supplier_products')
             .select('*')
