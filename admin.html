@@ -210,9 +210,16 @@
             const password = document.getElementById('adminPassword').value;
 
             try {
-                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-                if (error) { alert('❌ Login failed: ' + error.message); return; }
+                // Block anyone except admin email before even attempting login
+if (email.toLowerCase() !== 'milesorg216@gmail.com') {
+    alert('❌ Access denied. Unauthorized account.');
+    document.getElementById('adminEmail').value = '';
+    document.getElementById('adminPassword').value = '';
+    return;
+}
 
+const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+if (error) { alert('❌ Login failed: ' + error.message); return; }
                 currentAdmin = data.user;
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('adminDashboard').classList.remove('hidden');
