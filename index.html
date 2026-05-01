@@ -966,19 +966,39 @@
 <!-- Authentication Modal -->
 <div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-6">
+        <!-- Language Toggle -->
+        <div class="flex justify-center gap-2 mb-4">
+            <button onclick="setAuthLanguage('sw')" id="langSw"
+                class="px-4 py-1.5 rounded-full text-sm font-semibold bg-green-600 text-white transition">
+                🇹🇿 Kiswahili
+            </button>
+            <button onclick="setAuthLanguage('en')" id="langEn"
+                class="px-4 py-1.5 rounded-full text-sm font-semibold bg-gray-100 text-gray-600 transition">
+                🇬🇧 English
+            </button>
+        </div>
+
         <div class="text-center mb-6">
             <div class="text-5xl mb-3">🌾</div>
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome to AgriMarket</h2>
-            <p class="text-gray-600">Sign in to continue</p>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2" id="authTitle">Karibu KilimoBase</h2>
+            <p class="text-gray-600" id="authSubtitle">Ingia kuendelea</p>
         </div>
 
         <!-- Email/Password Form -->
         <div id="emailAuthForm">
             <form onsubmit="handleEmailAuth(event)" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Email</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2" id="labelEmail">Barua Pepe</label>
                     <input type="email" id="authEmail" required 
-                           placeholder="farmer@example.com"
+                           placeholder="mkulima@mfano.com"
+                           class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2" id="labelPassword">Neno la Siri</label>
+                    <input type="password" id="authPassword" required 
+                           placeholder="Angalau herufi 6"
+                           minlength="6"
+                           id="authPasswordInput"
                            class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
                 </div>
                 <div>
@@ -2040,6 +2060,88 @@ c
     
         }
     };
+
+    const authLang = {
+    sw: {
+        title: 'Karibu KilimoBase',
+        subtitle: 'Ingia kuendelea',
+        email: 'Barua Pepe',
+        password: 'Neno la Siri',
+        emailPlaceholder: 'mkulima@mfano.com',
+        passwordPlaceholder: 'Angalau herufi 6',
+        signIn: 'Ingia',
+        signUp: 'Jisajili',
+        forgotPassword: 'Umesahau neno la siri?',
+        noAccount: 'Huna akaunti?',
+        hasAccount: 'Una akaunti?',
+        nameLabel: 'Jina Lako',
+        namePlaceholder: 'Jina lako kamili',
+        googleBtn: 'Ingia na Google',
+        orText: 'au'
+    },
+    en: {
+        title: 'Welcome to KilimoBase',
+        subtitle: 'Sign in to continue',
+        email: 'Email',
+        password: 'Password',
+        emailPlaceholder: 'farmer@example.com',
+        passwordPlaceholder: 'Minimum 6 characters',
+        signIn: 'Sign In',
+        signUp: 'Sign Up',
+        forgotPassword: 'Forgot password?',
+        noAccount: "Don't have an account?",
+        hasAccount: 'Already have an account?',
+        nameLabel: 'Your Name',
+        namePlaceholder: 'Your full name',
+        googleBtn: 'Continue with Google',
+        orText: 'or'
+    }
+};
+
+let currentAuthLang = 'sw';
+
+function setAuthLanguage(lang) {
+    currentAuthLang = lang;
+    const t = authLang[lang];
+
+    // Toggle button styles
+    document.getElementById('langSw').className = `px-4 py-1.5 rounded-full text-sm font-semibold transition ${lang === 'sw' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`;
+    document.getElementById('langEn').className = `px-4 py-1.5 rounded-full text-sm font-semibold transition ${lang === 'en' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`;
+
+    // Update text
+    const authTitle = document.getElementById('authTitle');
+    const authSubtitle = document.getElementById('authSubtitle');
+    const labelEmail = document.getElementById('labelEmail');
+    const labelPassword = document.getElementById('labelPassword');
+    const authEmail = document.getElementById('authEmail');
+    const authPassword = document.getElementById('authPassword');
+    const forgotBtn = document.getElementById('forgotPasswordBtn');
+    const googleBtn = document.getElementById('googleSignInBtn');
+    const switchBtn = document.getElementById('authSwitchBtn');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const orText = document.getElementById('authOrText');
+    const nameLabel = document.getElementById('labelName');
+
+    if (authTitle) authTitle.textContent = t.title;
+    if (authSubtitle) authSubtitle.textContent = t.subtitle;
+    if (labelEmail) labelEmail.textContent = t.email;
+    if (labelPassword) labelPassword.textContent = t.password;
+    if (authEmail) authEmail.placeholder = t.emailPlaceholder;
+    if (authPassword) authPassword.placeholder = t.passwordPlaceholder;
+    if (forgotBtn) forgotBtn.textContent = t.forgotPassword;
+    if (googleBtn) googleBtn.textContent = '🔵 ' + t.googleBtn;
+    if (orText) orText.textContent = t.orText;
+    if (nameLabel) nameLabel.textContent = t.nameLabel;
+
+    // Update submit button and switch text based on current mode
+    const isSignUp = document.getElementById('authMode')?.value === 'signup';
+    if (submitBtn) submitBtn.textContent = isSignUp ? t.signUp : t.signIn;
+    if (switchBtn) {
+        const switchText = isSignUp ? t.hasAccount : t.noAccount;
+        const switchAction = isSignUp ? t.signIn : t.signUp;
+        switchBtn.innerHTML = `${switchText} <span class="text-green-600 font-bold">${switchAction}</span>`;
+    }
+}
 
     // ==================== COMMODITIES DATA (Enhanced) ====================
     // Remove the hardcoded array, replace with:
