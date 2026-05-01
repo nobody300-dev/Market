@@ -1052,6 +1052,12 @@
                         class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700">
                     Sign In
                 </button>
+                <div class="text-center mt-3">
+    <button type="button" onclick="showForgotPassword()" 
+        class="text-sm text-green-600 hover:underline">
+        Forgot password?
+    </button>
+                </div>
             </form>
 
             <div class="text-center my-4">
@@ -2179,6 +2185,26 @@ async function loadCommodities() {
         `;
     }
 }
+
+    async function showForgotPassword() {
+    const email = document.getElementById('loginEmail')?.value.trim() 
+        || prompt('Enter your email address:');
+    
+    if (!email) return;
+    
+    try {
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: 'https://kilibase.pages.dev/reset-password'
+        });
+        
+        if (error) throw error;
+        
+        showToast('Password reset link sent to ' + email + '. Check your inbox.', 'success');
+        
+    } catch (error) {
+        showToast('Error: ' + error.message, 'error');
+    }
+    }
 // ==========(NEW CODE FOR MARKET STATS) ==========
 
 // Function to load market overview stats from Supabase
@@ -8001,28 +8027,13 @@ async function handleEmailAuth(e) {
     
 // Google Sign In
 async function signInWithGoogle() {
-    document.getElementById('authLoadingOverlay').classList.remove('hidden');
-    
-    try {
-        const { data, error } = await supabaseClient.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: window.location.origin,
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'consent'
-                }
-            }
-        });
-        
-        if (error) throw error;
-        
-        // OAuth redirect happens automatically
-    } catch (error) {
-        console.error('Google sign in error:', error);
-        showToast(error.message, 'error');
-        document.getElementById('authLoadingOverlay').classList.add('hidden');
-    }
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: 'https://kilibase.pages.dev'
+        }
+    });
+    if (error) showToast('Google sign in failed: ' + error.message, 'error');
 }
 
 // Sign Out
