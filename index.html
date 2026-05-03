@@ -1077,14 +1077,6 @@
     </div>
 </div>
 
-                <!-- Name field (only for signup) -->
-<div id="nameField" class="hidden">
-    <label class="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
-    <input type="text" id="authName" 
-           placeholder="Your full name"
-           class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
-</div>
-
 <!-- Region field (only for signup) -->
 <div id="regionField" class="hidden">
     <label class="block text-sm font-bold text-gray-700 mb-2">
@@ -2218,141 +2210,81 @@ function setAuthLanguage(lang) {
 
     // ==================== COMMODITIES DATA (Enhanced) ====================
     // Remove the hardcoded array, replace with:
-let commodities = [];
-
-// Function to load commodities from Supabase
-async function loadCommodities() {
+   async function loadCommodities() {
     const tbody = document.getElementById('tableBody');
-    
     if (!tbody) return;
-    
-    // Show loading spinner
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8"><div class="loading-spinner"></div></td></tr>';
-    
+
+    // Show skeleton immediately — no waiting
+    tbody.innerHTML = `
+        ${Array(6).fill(0).map((_, i) => `
+        <tr class="border-b animate-pulse">
+            <td class="px-2 py-3"><div class="h-4 bg-gray-200 rounded w-6"></div></td>
+            <td class="px-2 py-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                    <div class="h-4 bg-gray-200 rounded w-20"></div>
+                </div>
+            </td>
+            <td class="px-2 py-3"><div class="h-4 bg-gray-200 rounded w-16"></div></td>
+            <td class="px-2 py-3"><div class="h-4 bg-gray-200 rounded w-16"></div></td>
+            <td class="px-2 py-3"><div class="h-6 bg-gray-200 rounded w-12"></div></td>
+            <td class="px-2 py-3"><div class="h-4 bg-gray-200 rounded w-14"></div></td>
+        </tr>`).join('')}
+    `;
+
     try {
-        if (!supabaseClient) {
-            throw new Error('No internet connection');
-        }
-        
+        if (!supabaseClient) throw new Error('No internet connection');
+
         const { data, error } = await supabaseClient
             .from('commodities')
             .select('*')
             .order('name_en', { ascending: true });
-        
+
         if (error) throw error;
-        
-        if (data && data.length > 0) {
-            // Map commodities
-           commodities = data.map(item => ({
-    id: item.id,
-    name: item.name,
-    nameEn: item.name_en,
-    emoji: item.emoji,
-    region: item.region,
-    market: item.market,
-    mapLink: item.map_link,
-    price: item.price,
-    price_min: item.price_min,
-    price_wholesale: item.price_wholesale,
-    wholesale_unit: item.wholesale_unit,
-    unit: item.unit,
-    unit_kg_equivalent: item.unit_kg_equivalent,
-    change: null
-}));
-            
-            console.log('✅ Loaded', commodities.length, 'commodities from Supabase');
-            
-            // Fetch entire history once - same source as modal
-            const { data: allHistory, error: historyError } = await supabaseClient
-                .from('commodity_price_history')
-                .select('commodity_name, region, price, recorded_at')
-                .order('recorded_at', { ascending: true });
+        if (!data || data.length === 0) throw new Error('No data available');
 
-            if (historyError) console.warn('History fetch error:', historyError.message);
+        // Map commodities
+        commodities = data.map(item => ({
+            id: item.id,
+            name: item.name,
+            nameEn: item.name_en,
+            emoji: item.emoji,
+            region: item.region,
+            market: item.market,
+            mapLink: item.map_link,
+            price: item.price,
+            price_min: item.price_min,
+            price_wholesale: item.price_wholesale,
+            wholesale_unit: item.wholesale_unit,
+            unit: item.unit,
+            unit_kg_equivalent: item.unit_kg_equivalent,
+            change: null
+        }));
 
-            // Group into daily averages per commodity+region
-            // Exact same logic as showPriceHistory chartData building
-            const dailyMap = {};
-            (allHistory || []).forEach(row => {
-                const key = `${row.commodity_name}__${row.region}`;
-                const date = row.recorded_at.split('T')[0];
-                if (!dailyMap[key]) dailyMap[key] = {};
-                if (!dailyMap[key][date]) dailyMap[key][date] = { total: 0, count: 0 };
-                dailyMap[key][date].total += parseFloat(row.price);
-                dailyMap[key][date].count += 1;
-            });
+        console.log('✅ Loaded', commodities.length, 'commodities from Supabase');
 
-            // Convert to sorted chartData array per key
-            const chartDataMap = {};
-            Object.keys(dailyMap).forEach(key => {
-                chartDataMap[key] = Object.keys(dailyMap[key])
-                    .sort()
-                    .map(date => ({
-                        recorded_at: date,
-                        price: dailyMap[key][date].total / dailyMap[key][date].count
-                    }));
-            });
+        // RENDER IMMEDIATELY — prices visible now, no waiting for 7d%
+        renderCommodities();
 
-            // Calculate 7d % using exact same logic as showPriceChartModal
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        // Load 7d% silently in background — doesn't block UI
+        load7DayChangesInBackground();
 
-            for (let i = 0; i < commodities.length; i++) {
-                const commodity = commodities[i];
-                const key = `${commodity.nameEn}__${commodity.region}`;
-                const chartData = chartDataMap[key];
-
-                if (!chartData || chartData.length === 0) {
-                    commodities[i].change = null;
-                    continue;
-                }
-
-                const currentPricePoint = chartData[chartData.length - 1];
-                // Use average of min/max if available, otherwise use price
-                const currentPriceValue = currentPricePoint.price_min
-                    ? (currentPricePoint.price + currentPricePoint.price_min) / 2
-                    : currentPricePoint.price;
-
-                const oldPricePoint = chartData
-                    .filter(d => new Date(d.recorded_at) <= sevenDaysAgo)
-                    .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0]
-                    || chartData[0];
-
-                const oldPriceValue = oldPricePoint.price_min
-                    ? (oldPricePoint.price + oldPricePoint.price_min) / 2
-                    : oldPricePoint.price;
-
-                if (!oldPriceValue || oldPriceValue === 0) {
-                    commodities[i].change = null;
-                    continue;
-                }
-
-                commodities[i].change = parseFloat(
-                    ((currentPriceValue - oldPriceValue) / oldPriceValue * 100).toFixed(2)
-                );
-            }
-            
-            renderCommodities();
-        } else {
-            throw new Error('No data available');
-        }
-        
     } catch (error) {
         console.error('❌ Failed to load commodities:', error.message);
-        
-        // Show offline message
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="py-12">
                     <div class="text-center">
                         <div class="text-6xl mb-4">📡</div>
-                        <h3 class="text-xl font-bold text-gray-800 mb-2">No Internet Connection</h3>
-                        <p class="text-gray-600 mb-6">Unable to load market prices. Please check your connection.</p>
-                        <button onclick="loadCommodities()" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition inline-flex items-center gap-2">
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Hakuna Mtandao</h3>
+                        <p class="text-gray-600 mb-4">Haiwezekani kupakia bei. Angalia muunganiko wako.</p>
+                        <p class="text-sm text-gray-400 mb-6">No internet connection. Please check and retry.</p>
+                        <button onclick="loadCommodities()" 
+                            class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition inline-flex items-center gap-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                             </svg>
-                            Retry
+                            Jaribu Tena / Retry
                         </button>
                     </div>
                 </td>
@@ -2360,6 +2292,81 @@ async function loadCommodities() {
         `;
     }
 }
+
+async function load7DayChangesInBackground() {
+    try {
+        const { data: allHistory, error: historyError } = await supabaseClient
+            .from('commodity_price_history')
+            .select('commodity_name, region, price, recorded_at')
+            .order('recorded_at', { ascending: true });
+
+        if (historyError || !allHistory) return;
+
+        // Group into daily averages
+        const dailyMap = {};
+        allHistory.forEach(row => {
+            const key = `${row.commodity_name}__${row.region}`;
+            const date = row.recorded_at.split('T')[0];
+            if (!dailyMap[key]) dailyMap[key] = {};
+            if (!dailyMap[key][date]) dailyMap[key][date] = { total: 0, count: 0 };
+            dailyMap[key][date].total += parseFloat(row.price);
+            dailyMap[key][date].count += 1;
+        });
+
+        const chartDataMap = {};
+        Object.keys(dailyMap).forEach(key => {
+            chartDataMap[key] = Object.keys(dailyMap[key])
+                .sort()
+                .map(date => ({
+                    recorded_at: date,
+                    price: dailyMap[key][date].total / dailyMap[key][date].count
+                }));
+        });
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        let hasChanges = false;
+        for (let i = 0; i < commodities.length; i++) {
+            const commodity = commodities[i];
+            const key = `${commodity.nameEn}__${commodity.region}`;
+            const chartData = chartDataMap[key];
+
+            if (!chartData || chartData.length === 0) continue;
+
+            const currentPricePoint = chartData[chartData.length - 1];
+            const currentPriceValue = currentPricePoint.price_min
+                ? (currentPricePoint.price + currentPricePoint.price_min) / 2
+                : currentPricePoint.price;
+
+            const oldPricePoint = chartData
+                .filter(d => new Date(d.recorded_at) <= sevenDaysAgo)
+                .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0]
+                || chartData[0];
+
+            const oldPriceValue = oldPricePoint.price_min
+                ? (oldPricePoint.price + oldPricePoint.price_min) / 2
+                : oldPricePoint.price;
+
+            if (!oldPriceValue || oldPriceValue === 0) continue;
+
+            commodities[i].change = parseFloat(
+                ((currentPriceValue - oldPriceValue) / oldPriceValue * 100).toFixed(2)
+            );
+            hasChanges = true;
+        }
+
+        // Only re-render if we got some changes — silently updates 7d% column
+        if (hasChanges) {
+            renderCommodities();
+            console.log('✅ 7d% updated in background');
+        }
+
+    } catch (error) {
+        console.warn('7d background load failed silently:', error.message);
+        // Silent fail — prices still show, just no 7d%
+    }
+} 
 
     function switchAuthTab(mode) {
     const t = authLang[currentAuthLang];
@@ -3003,14 +3010,19 @@ window.addEventListener('offline', () => {
     document.getElementById('home').classList.add('active');
     
     // Load data
-    loadMarketStats();
+    // Load ONLY what home tab needs immediately
     loadCommodities();
-    loadCommunityPosts();
-    loadNews();
-    loadActiveCrops();
-    loadLearningResources();
+    loadMarketStats();
     setupProfilePicture();
     updateFAB();
+
+    // Load everything else after 3 seconds — when home tab is already visible
+    setTimeout(() => {
+        loadCommunityPosts();
+        loadNews();
+        loadActiveCrops();
+        loadLearningResources();
+    }, 3000);
 
     // Lazy load images
     const images = document.querySelectorAll('img[data-src]');
@@ -4020,6 +4032,23 @@ function switchTab(tabName) {
     // Update FAB visibility based on tab
     updateFAB();
 
+    // Lazy load tab data only when tab is first opened
+    if (tabName === 'feed' && !window._feedLoaded) {
+        window._feedLoaded = true;
+        loadNews();
+    }
+    if (tabName === 'community' && !window._communityLoaded) {
+        window._communityLoaded = true;
+        loadCommunityPosts();
+    }
+    if (tabName === 'learn' && !window._learnLoaded) {
+        window._learnLoaded = true;
+        loadLearningResources();
+    }
+    if (tabName === 'crops' && !window._cropsLoaded) {
+        window._cropsLoaded = true;
+        loadActiveCrops();
+    }
     // Control floating chat button visibility
     const floatingChatBtn = document.getElementById('floatingChatButton');
     if (floatingChatBtn) {
