@@ -539,108 +539,6 @@ async function removeSupplierRole(userId) {
     }
 }
 
-        async function loadAllUsers() {
-    document.getElementById('tabContent').innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent"></div></div>';
-
-    try {
-        const { data: profiles, error } = await supabaseClient
-            .from('user_profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        document.getElementById('tabContent').innerHTML = `
-            <div class="space-y-4">
-                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-                    <div>
-                        <h2 class="text-xl font-bold">👥 All Registered Users</h2>
-                        <p class="text-sm text-gray-500 mt-1">Total: <strong>${profiles.length}</strong> users</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm text-gray-500">Latest signup</p>
-                        <p class="text-sm font-semibold">${profiles.length > 0 ? formatTimeAgo(profiles[0].created_at) : '—'}</p>
-                    </div>
-                </div>
-
-                <!-- Search -->
-                <div class="bg-white rounded-lg shadow p-4">
-                    <input type="text" id="userSearchInput" 
-                        placeholder="Search by name or region..."
-                        oninput="filterUserList()"
-                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
-                </div>
-
-                <!-- Users List -->
-                <div id="userList" class="space-y-3">
-                    ${profiles.length === 0 ? `
-                        <div class="bg-white rounded-lg shadow p-8 text-center">
-                            <p class="text-gray-500">No users yet</p>
-                        </div>
-                    ` : profiles.map(p => `
-                        <div class="bg-white rounded-lg shadow p-4 border-l-4 ${
-                            p.role === 'supplier' ? 'border-green-500' : 
-                            p.role === 'admin' ? 'border-purple-500' : 
-                            'border-gray-200'
-                        }">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <p class="font-bold text-gray-800">${p.name || 'No name set'}</p>
-                                        <span class="px-2 py-0.5 text-xs font-bold rounded-full ${
-                                            p.role === 'supplier' ? 'bg-green-100 text-green-700' :
-                                            p.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                            'bg-gray-100 text-gray-600'
-                                        }">
-                                            ${p.role === 'supplier' ? '🏪 Supplier' : p.role === 'admin' ? '⚙️ Admin' : '👤 Farmer'}
-                                        </span>
-                                    </div>
-                                    <p class="text-sm text-gray-500 mt-1">
-                                        📍 ${p.region || 'No region'} ${p.district ? '• ' + p.district : ''}
-                                    </p>
-                                    ${p.business_name ? `
-                                        <p class="text-sm text-green-700 font-semibold mt-1">🏪 ${p.business_name}</p>
-                                    ` : ''}
-                                    <p class="text-xs text-gray-400 mt-1">Joined ${formatTimeAgo(p.created_at)}</p>
-                                </div>
-                                <div class="flex flex-col gap-2">
-                                    ${p.role !== 'supplier' ? `
-                                        <button onclick="setAsSupplier('${p.id}', '${(p.name || 'User').replace(/'/g, '')}')"
-                                            class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 whitespace-nowrap">
-                                            Set Supplier
-                                        </button>
-                                    ` : `
-                                        <button onclick="editSupplierDetails('${p.id}')"
-                                            class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700">
-                                            Edit
-                                        </button>
-                                        <button onclick="removeSupplierRole('${p.id}')"
-                                            class="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-200">
-                                            Remove
-                                        </button>
-                                    `}
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-
-    } catch (error) {
-        document.getElementById('tabContent').innerHTML = `
-            <div class="bg-red-50 text-red-600 p-4 rounded-lg">Error: ${error.message}</div>
-        `;
-    }
-}
-
-function filterUserList() {
-    const search = document.getElementById('userSearchInput').value.toLowerCase();
-    document.querySelectorAll('#userList > div').forEach(div => {
-        div.style.display = div.textContent.toLowerCase().includes(search) ? '' : 'none';
-    });
-}
-
         // ==================== PENDING REPORTS ====================
         async function loadPendingReports() {
             const content = document.getElementById('tabContent');
@@ -1340,6 +1238,108 @@ function filterUserList() {
             }
         }
 
+        
+async function loadAllUsers() {
+    document.getElementById('tabContent').innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent"></div></div>';
+
+    try {
+        const { data: profiles, error } = await supabaseClient
+            .from('user_profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        document.getElementById('tabContent').innerHTML = `
+            <div class="space-y-4">
+                <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold">👥 All Registered Users</h2>
+                        <p class="text-sm text-gray-500 mt-1">Total: <strong>${profiles.length}</strong> users</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-500">Latest signup</p>
+                        <p class="text-sm font-semibold">${profiles.length > 0 ? formatTimeAgo(profiles[0].created_at) : '—'}</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-4">
+                    <input type="text" id="userSearchInput"
+                        placeholder="Search by name or region..."
+                        oninput="filterUserList()"
+                        class="w-full px-4 py-3 border-2 rounded-lg focus:border-green-500 focus:outline-none">
+                </div>
+
+                <div id="userList" class="space-y-3">
+                    ${profiles.length === 0 ? `
+                        <div class="bg-white rounded-lg shadow p-8 text-center">
+                            <div class="text-5xl mb-3">👥</div>
+                            <p class="text-gray-500">No users yet</p>
+                        </div>
+                    ` : profiles.map(p => `
+                        <div class="bg-white rounded-lg shadow p-4 border-l-4 ${
+                            p.role === 'supplier' ? 'border-green-500' :
+                            p.role === 'admin' ? 'border-purple-500' :
+                            'border-gray-200'
+                        }">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <p class="font-bold text-gray-800">${p.name || 'No name set'}</p>
+                                        <span class="px-2 py-0.5 text-xs font-bold rounded-full ${
+                                            p.role === 'supplier' ? 'bg-green-100 text-green-700' :
+                                            p.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                                            'bg-gray-100 text-gray-600'
+                                        }">
+                                            ${p.role === 'supplier' ? '🏪 Supplier' : p.role === 'admin' ? '⚙️ Admin' : '👤 Farmer'}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        📍 ${p.region || 'No region'} ${p.district ? '• ' + p.district : ''}
+                                    </p>
+                                    ${p.business_name ? `
+                                        <p class="text-sm text-green-700 font-semibold mt-1">🏪 ${p.business_name}</p>
+                                    ` : ''}
+                                    <p class="text-xs text-gray-400 mt-1">Joined ${formatTimeAgo(p.created_at)}</p>
+                                </div>
+                                <div class="flex flex-col gap-2 flex-shrink-0">
+                                    ${p.role !== 'supplier' ? `
+                                        <button onclick="setAsSupplier('${p.id}', '${(p.name || 'User').replace(/'/g, "\\'")}' )"
+                                            class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 whitespace-nowrap">
+                                            Set Supplier
+                                        </button>
+                                    ` : `
+                                        <button onclick="editSupplierDetails('${p.id}')"
+                                            class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700">
+                                            Edit
+                                        </button>
+                                        <button onclick="removeSupplierRole('${p.id}')"
+                                            class="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-200">
+                                            Remove
+                                        </button>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        document.getElementById('tabContent').innerHTML = `
+            <div class="bg-red-50 text-red-600 p-4 rounded-lg">Error: ${error.message}</div>
+        `;
+    }
+}
+
+function filterUserList() {
+    const search = document.getElementById('userSearchInput').value.toLowerCase();
+    document.querySelectorAll('#userList > div').forEach(div => {
+        div.style.display = div.textContent.toLowerCase().includes(search) ? '' : 'none';
+    });
+}
+        
         // ==================== HELPERS ====================
         function getCommodityEmoji(name) {
             // Check cache first
