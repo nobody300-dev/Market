@@ -2859,8 +2859,17 @@ window.addEventListener('offline', () => {
         // ✅ CHECK AND SHOW BADGE
         checkAndShowUserBadge();
                 } else {
-                    console.log('ℹ️ No session, showing auth modal');
-                    showAuthModal();
+                    // Check if this is a Google OAuth redirect — don't show auth modal yet
+                    const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+                    const isOAuthRedirect = hashParams.get('access_token') || 
+                                           window.location.hash.includes('access_token');
+                    
+                    if (!isOAuthRedirect) {
+                        console.log('ℹ️ No session, showing auth modal');
+                        showAuthModal();
+                    } else {
+                        console.log('🔄 OAuth redirect detected, waiting for session...');
+                    }
                 }
             }).catch(err => {
                 console.warn('Auth check error:', err);
@@ -2868,8 +2877,7 @@ window.addEventListener('offline', () => {
             });
             
             // Auth listener
-            supabaseClient.auth.onAuthStateChange(async (event, session) => {
-                if (event === 'SIGNED_IN') {
+            if (event === 'SIGNED_IN') {
                     currentUser = session.user;
                     console.log('✅ User logged in:', currentUser.email);
                     
@@ -2878,6 +2886,10 @@ window.addEventListener('offline', () => {
                     checkAndShowUserBadge();
                     loadActiveCrops();
                     checkUserRole();
+
+                    // Reload commodities in case they loaded before auth was ready
+                    loadCommodities();
+                    loadMarketStats();
 
                     // Show region modal immediately for new confirmed users
                     const { data: profile } = await supabaseClient
@@ -2898,6 +2910,9 @@ window.addEventListener('offline', () => {
                 if (event === 'SIGNED_OUT') {
                     currentUser = null;
                     activeCrops = [];
+                    // Hide supplier button on signout
+                    const supplierBtn = document.getElementById('supplierDashboardBtn');
+                    if (supplierBtn) supplierBtn.classList.add('hidden');
                 }
             });
             
@@ -8280,6 +8295,10 @@ async function checkUserRole() {
             .single();
         
         if (error) return;
+        
+        // Always reset first to clear any cached role
+        currentUser.role = 'farmer';
+        currentUser.businessName = '';
         
         currentUser.role = data?.role || 'farmer';
         currentUser.businessName = data?.business_name || '';
