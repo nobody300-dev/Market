@@ -2877,7 +2877,9 @@ window.addEventListener('offline', () => {
             });
             
             // Auth listener
-            if (event === 'SIGNED_IN') {
+            // Auth listener
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                if (event === 'SIGNED_IN') {
                     currentUser = session.user;
                     console.log('✅ User logged in:', currentUser.email);
                     
@@ -2910,7 +2912,6 @@ window.addEventListener('offline', () => {
                 if (event === 'SIGNED_OUT') {
                     currentUser = null;
                     activeCrops = [];
-                    // Hide supplier button on signout
                     const supplierBtn = document.getElementById('supplierDashboardBtn');
                     if (supplierBtn) supplierBtn.classList.add('hidden');
                 }
@@ -8261,13 +8262,17 @@ async function handleEmailAuth(e) {
     
 // Google Sign In
 async function signInWithGoogle() {
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-            redirectTo: 'https://kilibase.pages.dev'
-        }
-    });
-    if (error) showToast('Google sign in failed: ' + error.message, 'error');
+    try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: 'https://kilibase.pages.dev'
+            }
+        });
+        if (error) throw error;
+    } catch (error) {
+        showToast('Google signin failed: ' + error.message, 'error');
+    }
 }
 
 // Sign Out
