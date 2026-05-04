@@ -1,6 +1,6 @@
 {
-  "name": "Tanzania AgriMarket",
-  "short_name": "AgriMarket",
+  "name": "KilimoBase",
+  "short_name": "KilimoBase",
   "description": "Smart farming platform connecting Tanzanian farmers with markets, suppliers, and AI-powered insights",
   "start_url": "/",
   "display": "standalone",
@@ -11,6 +11,27 @@
   "lang": "en-US",
   "dir": "ltr",
   "categories": ["business", "productivity", "agriculture"],
+"id": "kilimobase-app",
+"iarc_rating_id": "",
+"edge_side_panel": {},
+"display_override": ["window-controls-overlay", "standalone"],
+"launch_handler": {
+    "client_mode": "navigate-existing"
+},
+"handle_links": "preferred",
+"protocol_handlers": [],
+"file_handlers": [],
+"share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+        "title": "title",
+        "text": "text",
+        "url": "url"
+    }
+},
+"related_applications": [],
+"prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192.png",
