@@ -1,6 +1,6 @@
 // Service Worker for Tanzania AgriMarket PWA
-const CACHE_NAME = 'agrimarket-v1.0.0';
-const RUNTIME_CACHE = 'agrimarket-runtime-v1';
+const CACHE_NAME = 'Kilimobase.0.0';
+const RUNTIME_CACHE = 'Kilimobase-runtime-v1';
 
 // Files to cache immediately on install
 const PRECACHE_URLS = [
@@ -9,7 +9,8 @@ const PRECACHE_URLS = [
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
-  // Add other critical assets here
+  '/icon-apple.png',
+  '/offline.html',
 ];
 
 // Install event - cache critical files
@@ -105,7 +106,7 @@ self.addEventListener('fetch', event => {
 // Push notification support (for future)
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Tanzania AgriMarket';
+  const title = data.title || 'KilimoBase;
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/icon-192.png',
