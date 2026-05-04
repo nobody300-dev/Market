@@ -1386,6 +1386,12 @@ function filterUserList() {
         (async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
+                // Block any non-admin session
+                if (session.user.email.toLowerCase() !== 'milesorg216@gmail.com') {
+                    await supabaseClient.auth.signOut();
+                    return;
+                }
+                
                 currentAdmin = session.user;
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('adminDashboard').classList.remove('hidden');
